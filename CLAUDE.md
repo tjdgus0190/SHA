@@ -2,6 +2,20 @@
 
 Photoshop 오버레이 팔레트. Lab L*(명도)를 고정한 채 색상/채도만 조절한다. 사용자 응답은 **한국어**.
 
+## 프로젝트 주 목표 (상용화)
+1. **상용화** — 판매 가능한 제품으로 완성 (안정성, 라이선스, 서명, 랜딩/결제).
+2. **검정 전환 버그 근절** — 위 "핵심 문제" 참고.
+3. **판매 금액 책정** — `docs/pricing.md` (근거 있는 시장조사 + 손익 계산).
+4. **광고 영상 제작** — `docs/ad-video/` (스크립트, 스토리보드, 에셋).
+
+## 에이전트 (`.claude/agents/`)
+- `planner` 기획자: 가격·로드맵·포지셔닝·법적 체크리스트
+- `marketer` 마케터: 광고 영상 기획, 판매 카피, 채널 계획
+- `designer` 디자이너: 브랜드, UI/UX, 비주얼 에셋
+- `developer` 개발자: 버그 수정, 기능, 빌드
+- 보조: `glitch-tester`, `bridge-reviewer`, `log-analyzer`, `win-builder`
+협업 순서 예: planner(가격/범위) → designer(브랜드/에셋) → marketer(영상/카피) ← developer(검증된 기능만 광고에 사용).
+
 ## 구성
 - `app/` — Electron 앱 (`main.js` 중심). 전역 후킹(uiohook-napi), 트레이, 팝업/상태 패널, WebSocket 서버(포트 **51837**).
 - `app/com-bridge.js` — Windows 브릿지. PowerShell 스크립트(템플릿 리터럴 `PS_SCRIPT`)가 Photoshop COM을 100ms 폴링, TCP **51900**. 프로토콜: `COLOR r,g,b` / `PS_ALIVE` / `PS_GONE` / `SET_OK` / `SET_ERR` / `TEST`.
