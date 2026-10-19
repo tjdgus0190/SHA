@@ -1,0 +1,68 @@
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: -apple-system, "Segoe UI", sans-serif;
+  background: #2b2b2f;
+  color: #ddd;
+  font-size: 13px;
+}
+.wrap { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+h1 { font-size: 14px; margin: 0 0 4px; color: #fff; }
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #3a3a40;
+}
+.row label { color: #bbb; font-size: 12px; }
+.key-input { display: flex; align-items: center; gap: 8px; }
+.radio-group { display: flex; flex-direction: column; gap: 4px; }
+.radio-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #ccc;
+  font-size: 12px;
+  cursor: pointer;
+}
+.radio-label input { margin: 0; }
+.key-label {
+  background: #1f1f23;
+  border: 1px solid #3a3a40;
+  border-radius: 4px;
+  padding: 5px 10px;
+  min-width: 70px;
+  text-align: center;
+  font-weight: 600;
+  color: #fff;
+}
+.record-btn, .save-btn, .clear-btn {
+  background: #4a4a52;
+  border: 1px solid #1c1c1f;
+  color: #eee;
+  border-radius: 5px;
+  padding: 5px 10px;
+  cursor: pointer;
+  font-size: 12px;
+}
+.record-btn:hover, .save-btn:hover { background: #5a5a64; }
+.clear-btn { padding: 5px 8px; color: #ff9a9a; }
+.record-btn.recording { background: #4a7cff; color: #fff; }
+
+.recording-hint {
+  background: #1f3a24;
+  color: #9adca8;
+  border: 1px solid #2a5a34;
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 12px;
+  text-align: center;
+}
+
+.actions { display: flex; justify-content: flex-end; }
+.save-btn { background: #2b5be0; padding: 7px 16px; }
+.save-btn:hover { background: #3a6cf0; }
+
+.note { color: #888; font-size: 11px; line-height: 1.5; margin: 0; }

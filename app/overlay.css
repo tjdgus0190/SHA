@@ -1,0 +1,183 @@
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  user-select: none;
+  font-family: -apple-system, "Segoe UI", sans-serif;
+  font-size: 12px;
+  color: #ddd;
+}
+
+.panel {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: #2b2b2f;
+  border-radius: 14px;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.55);
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  gap: 8px;
+}
+
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end; /* 이제 아이콘 하나만 남아서, 우측 정렬로 고정 */
+  -webkit-app-region: drag; /* 이 영역을 드래그하면 창이 움직인다 (Electron 프레임리스 창용) */
+  cursor: move;
+  min-height: 18px; /* 텍스트 라벨이 없어져도 드래그로 잡을 최소 높이는 유지 */
+}
+.top-icons {
+  display: flex;
+  gap: 6px;
+  -webkit-app-region: no-drag; /* 버튼 자체는 드래그가 아니라 클릭이 되어야 함 */
+}
+.icon-btn {
+  background: #3d3d42;
+  border: 1px solid #1c1c1f;
+  color: #ddd;
+  border-radius: 5px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+.icon-btn:hover { background: #4b4b52; color: #fff; }
+.icon-btn.active { background: #4a7cff; border-color: #2b5be0; color: #fff; }
+
+.field-wrap {
+  position: relative;
+  background: #3a3a3f;
+  border-radius: 6px;
+  overflow: hidden;
+  flex: 1; /* 창을 세로로 늘리면 이 영역이 늘어난 만큼 커진다 */
+  min-height: 100px;
+}
+#fieldCanvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+  touch-action: none;
+}
+.field-cursor {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.6), 0 1px 4px rgba(0,0,0,0.5);
+  pointer-events: none;
+}
+
+.lightness-slider-row { padding: 2px; }
+
+/* outer: 0~100 전체 범위를 나타내는 바깥 트랙. 항상 패널 너비만큼 꽉 차고,
+   "이 색이 유지되는 범위가 전체 중 어느 만큼인지" 감이 오도록 옅은 배경만
+   깐다. 실제 클릭/드래그 대상은 이 안의 .lightness-track(안쪽)이다. */
+.lightness-outer {
+  position: relative;
+  height: 14px;
+  border-radius: 7px;
+  background: #1c1c1f;
+  border: 1px solid #111;
+}
+/* track(안쪽): 실제 [Lmin,Lmax] 구간만큼만 너비를 차지하고 그 안에 실제
+   색 그라데이션을 그린다. 스펙트럼(=Lmax-Lmin)이 좁으면 이 바 자체가
+   짧아지고, 넓으면 거의 outer 전체를 채운다. */
+.lightness-track {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: 7px;
+  background: linear-gradient(to right, #000, #fff);
+  cursor: pointer;
+  touch-action: none;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.15);
+}
+.lightness-handle {
+  position: absolute;
+  top: -3px;
+  width: 8px;
+  height: 20px;
+  left: 50%;
+  background: #eee;
+  border: 1px solid #111;
+  border-radius: 3px;
+  transform: translateX(-50%);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.6);
+}
+
+.bottom-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.swatch-stack { position: relative; width: 30px; height: 30px; flex: none; }
+.swatch {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: 1px solid rgba(0,0,0,0.5);
+}
+.swatch.back { right: 0; bottom: 0; }
+.swatch.front { left: 0; top: 0; box-shadow: 0 1px 4px rgba(0,0,0,0.5); }
+
+.history-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+.history-swatch {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border-radius: 4px;
+  border: 1px solid rgba(255,255,255,0.15);
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+.history-swatch:hover {
+  transform: scale(1.15);
+  border-color: rgba(255,255,255,0.5);
+}
+
+.apply-failed-banner {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(200, 50, 50, 0.95);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.4);
+  pointer-events: none; /* 아래 있는 실제 UI 조작을 방해 안 하게 */
+  z-index: 20;
+  animation: apply-failed-fade 2.2s ease forwards;
+}
+@keyframes apply-failed-fade {
+  0% { opacity: 0; transform: translateX(-50%) translateY(-4px); }
+  10% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  80% { opacity: 1; }
+  100% { opacity: 0; }
+}

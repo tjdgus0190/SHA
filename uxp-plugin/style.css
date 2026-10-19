@@ -1,0 +1,215 @@
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, "Segoe UI", sans-serif;
+  font-size: 12px;
+  color: #ddd;
+  background: #2b2b2f;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 10px;
+  gap: 8px;
+}
+
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.title {
+  font-weight: 600;
+  font-size: 12px;
+  color: #eee;
+}
+.top-icons {
+  display: flex;
+  gap: 6px;
+}
+.icon-btn {
+  background: #3d3d42;
+  border: 1px solid #1c1c1f;
+  color: #ddd;
+  border-radius: 5px;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.icon-btn:hover { background: #4b4b52; color: #fff; }
+.icon-btn.active { background: #4a7cff; border-color: #2b5be0; color: #fff; }
+
+/* 비정형 블롭 필드: 실제 sRGB 색역 경계를 픽셀 단위로 그린다 */
+.field-wrap {
+  position: relative;
+  background: #3a3a3f;
+  border-radius: 6px;
+  overflow: hidden;
+  flex: none;
+}
+#fieldCanvas {
+  display: block;
+  width: 100%;
+  height: 170px;
+  cursor: crosshair;
+  touch-action: none;
+}
+.field-cursor {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.6), 0 1px 4px rgba(0,0,0,0.5);
+  pointer-events: none;
+}
+
+.lightness-slider-row {
+  padding: 2px 2px;
+}
+.lightness-track {
+  position: relative;
+  height: 16px;
+  border-radius: 8px;
+  background: linear-gradient(to right, #000, #fff);
+  border: 1px solid #1c1c1f;
+  cursor: pointer;
+  touch-action: none;
+}
+.lightness-handle {
+  position: absolute;
+  top: -3px;
+  width: 8px;
+  height: 22px;
+  left: 50%;
+  background: #eee;
+  border: 1px solid #111;
+  border-radius: 3px;
+  transform: translateX(-50%);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.6);
+}
+
+.bottom-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.swatches {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.swatch-stack {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  flex: none;
+}
+.swatch {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  border: 1px solid rgba(0,0,0,0.5);
+}
+.swatch.back { right: 0; bottom: 0; }
+.swatch.front { left: 0; top: 0; box-shadow: 0 1px 4px rgba(0,0,0,0.5); }
+.swatch-info #currentHex { font-weight: 600; }
+.muted { color: #999; font-size: 11px; }
+
+.bottom-icons { display: flex; gap: 6px; }
+
+.history-row {
+  display: flex;
+}
+.history-strip {
+  flex: 1;
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  padding: 1px;
+}
+.history-swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 1px solid rgba(0,0,0,0.4);
+  flex: none;
+  cursor: pointer;
+}
+.history-swatch:hover { transform: scale(1.15); border-color: #fff; }
+
+.status {
+  font-size: 11px;
+  padding: 4px 6px;
+  border-radius: 3px;
+}
+.status.error { background: #4a1f1f; color: #ff9a9a; border: 1px solid #6b2a2a; }
+.status.ok { background: #1f3a24; color: #9adca8; border: 1px solid #2a5a34; }
+
+.hint {
+  color: #888;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+/* ---------------------------------------------------------------
+   아래는 mock-preview.html(브라우저 프리뷰)이 계속 참조하는 구버전
+   클래스들. 실제 플러그인(index.html)은 더 이상 안 쓰지만, 브라우저
+   프리뷰 호환을 위해 남겨둠.
+--------------------------------------------------------------- */
+.grid {
+  flex: 1;
+  display: grid;
+  gap: 3px;
+  outline: none;
+  align-content: start;
+}
+.tile {
+  border-radius: 3px;
+  cursor: pointer;
+  border: 1px solid rgba(0,0,0,0.35);
+  position: relative;
+  transition: transform 0.05s ease;
+}
+.tile:hover { transform: scale(1.08); z-index: 2; border-color: #fff; }
+.tile.current { outline: 3px solid #fff; outline-offset: -3px; box-shadow: 0 0 0 1px #000 inset; }
+
+.ring-wrap {
+  flex: 1;
+  position: relative;
+  min-height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  outline: none;
+}
+.ring-center {
+  position: absolute;
+  width: 40px; height: 40px; left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.6);
+  pointer-events: none;
+  z-index: 1;
+}
+.ring-tile {
+  position: absolute;
+  width: 30px; height: 30px; left: 50%; top: 50%;
+  border-radius: 50%;
+  border: 1px solid rgba(0,0,0,0.4);
+  cursor: pointer;
+  transition: transform 0.05s ease;
+}
+.ring-tile:hover { transform: translate(-50%, -50%) scale(1.2) !important; z-index: 2; border-color: #fff; }
+.ring-tile.selected { outline: 2px solid #fff; outline-offset: 1px; }

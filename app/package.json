@@ -1,0 +1,51 @@
+{
+  "name": "luminance-overlay-app",
+  "version": "1.0.0",
+  "description": "Photoshop Luminance Picker와 짝을 이루는 OS 레벨 커서 오버레이 앱",
+  "author": "Luminance Picker Project",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "dependencies": {
+    "ws": "^8.18.0",
+    "uiohook-napi": "^1.5.5",
+    "@miniben90/x-win": "^3.6.0"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.yourcompany.luminanceoverlay",
+    "productName": "SHA Paint",
+    "files": ["main.js", "com-bridge.js", "mac-bridge.js", "preload.js", "overlay.html", "overlay.js", "overlay.css", "colorMath.js", "settings.html", "settings.js", "settings-preload.js", "settings.css", "config.js", "status-panel.html", "status-panel.js", "status-preload.js", "icons/*"],
+    "extraResources": [
+      { "from": "resources/tourbox-luminance-picker.ccx", "to": "tourbox-luminance-picker.ccx" }
+    ],
+    "mac": {
+      "category": "public.app-category.graphics-design",
+      "target": [{ "target": "zip", "arch": ["x64", "arm64"] }],
+      "icon": "build/icon.icns",
+      "artifactName": "SHAPaintSetup-${version}-${arch}.${ext}",
+      "hardenedRuntime": false
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico",
+      "artifactName": "SHAPaintSetup-${version}.${ext}"
+    },
+    "npmRebuild": false,
+    "asarUnpack": [
+      "**/*.node"
+    ],
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "runAfterFinish": false
+    }
+  }
+}

@@ -1,0 +1,5 @@
+node_modules/
+dist/
+*.log
+sha-paint-log.txt
+.DS_Store

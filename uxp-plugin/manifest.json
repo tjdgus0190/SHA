@@ -1,0 +1,38 @@
+{
+  "id": "com.yourcompany.luminancepicker",
+  "name": "Luminance Color Picker",
+  "version": "1.0.0",
+  "main": "index.html",
+  "manifestVersion": 5,
+  "host": {
+    "app": "PS",
+    "minVersion": "24.0.0"
+  },
+  "entrypoints": [
+    {
+      "type": "panel",
+      "id": "luminancePanel",
+      "label": {
+        "default": "Luminance Picker"
+      },
+      "minimumSize": { "width": 260, "height": 320 },
+      "maximumSize": { "width": 800, "height": 900 },
+      "preferredDockedSize": { "width": 300, "height": 420 },
+      "preferredFloatingSize": { "width": 320, "height": 440 },
+      "icons": [
+        { "width": 23, "height": 23, "path": "icons/icon24.png", "scale": [1, 2], "theme": ["darkest", "dark", "medium"] },
+        { "width": 23, "height": 23, "path": "icons/icon24-dark.png", "scale": [1, 2], "theme": ["lightest", "light"] }
+      ]
+    }
+  ],
+  "requiredPermissions": {
+    "clipboard": "read",
+    "network": {
+      "domains": ["ws://localhost:51837", "ws://127.0.0.1:51837"]
+    }
+  },
+  "icons": [
+    { "width": 48, "height": 48, "path": "icons/icon48.png", "scale": [1, 2], "theme": ["darkest", "dark", "medium"] },
+    { "width": 48, "height": 48, "path": "icons/icon48-dark.png", "scale": [1, 2], "theme": ["lightest", "light"] }
+  ]
+}

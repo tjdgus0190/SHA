@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="settings.css" />
+</head>
+<body>
+  <div class="wrap">
+    <h1>SHA Paint 설정</h1>
+
+    <div class="row">
+      <label>팔레트 팝업 표시 (누르면 열림/한번 더 누르면 닫힘, Esc로도 닫힘)</label>
+      <div class="key-input">
+        <span id="showPopupKeyLabel" class="key-label">-</span>
+        <button id="recordShowPopupBtn" class="record-btn">키 입력으로 변경</button>
+      </div>
+    </div>
+
+    <div class="row">
+      <label>활성화 전환 (1회 입력 — 켜면 아래 클릭으로도 팝업이 열림)</label>
+      <div class="key-input">
+        <span id="clickFollowKeyLabel" class="key-label">-</span>
+        <button id="recordClickFollowBtn" class="record-btn">키 입력으로 변경</button>
+      </div>
+    </div>
+
+    <div class="row">
+      <label>활성화 트리거 (마우스 클릭 또는 키보드 키 — 기본값: 중클릭)</label>
+      <div class="key-input">
+        <span id="activationTriggerLabel" class="key-label">-</span>
+        <button id="recordActivationTriggerBtn" class="record-btn">키/클릭 입력으로 변경</button>
+      </div>
+    </div>
+
+    <div id="recordingHint" class="recording-hint" hidden>
+      키를 누르거나 마우스 버튼을 클릭해주세요... (Esc로 취소)
+    </div>
+
+    <div class="actions">
+      <button id="saveBtn" class="save-btn">저장</button>
+    </div>
+
+    <p class="note">
+      "팔레트 팝업 표시"는 한 번 누르면 열리고 다시 누르면 닫히는 토글이며,
+      Esc로도 닫을 수 있습니다. "활성화 전환"도 한 번 눌러서
+      켜고, 다시 눌러서 끄는 토글입니다 (또는 화면에 뜨는 상태 패널에서
+      클릭으로도 켜고 끌 수 있습니다). "활성화 트리거"는 켜진 상태에서
+      팝업을 여는 동작으로, 좌클릭·우클릭·중클릭은 물론 키보드 키로도
+      바꿀 수 있습니다(브러시와 겹치는 좌클릭으로 바꾸면 그림 그리는
+      도중 팝업이 뜰 수 있다는 점만 참고해주세요). 저장하면 재시작 없이
+      바로 적용됩니다.
+    </p>
+  </div>
+  <script src="settings.js"></script>
+</body>
+</html>
