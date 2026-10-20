@@ -1,7 +1,7 @@
 # SHA Paint
 
 Photoshop 오버레이 팔레트. Lab L*(명도)를 고정한 채 색상/채도만 조절한다. 사용자 응답은 **한국어**.
-브랜드: **SHA Studio**(제작사) / 제품명 **SHA Paint**. 저장소: https://github.com/tjdgus0190/sha (비공개, 여러 PC에서 작업 — 작업 전 `git pull`, 후 commit/push).
+브랜드: **SHA Studio**(제작사) / 제품명 **SHA Paint**. 저장소: https://github.com/tjdgus0190/SHA (비공개, 여러 PC에서 작업 — 작업 전 `git pull`, 후 commit/push).
 
 ## 현재 상황 (2026-10-20 기준)
 - **판매 중**: Gumroad `https://tjdgus76.gumroad.com/l/vutuls` ($10, 1회 결제). 결제 바로가기 링크는 끝에 `?wanted=true`.
