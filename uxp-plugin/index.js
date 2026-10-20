@@ -7,8 +7,14 @@ const {
   lumaFieldPixel,
   polarToAB,
   abToPolar,
-  findMaxChromaForHue
+  findMaxChromaForHue,
+  labToRgb
 } = require("./colorMath.js");
+
+// 오버레이 앱(main.js)과의 프로토콜 버전. 2부터 hello/setResult(ack)를 지원해서
+// 오버레이 앱이 COM과 중복으로 SET을 보내지 않는다.
+const PLUGIN_VERSION = "1.1.0";
+const OVERLAY_PROTOCOL = 2;
 
 // ---------------------------------------------------------------------
 // 상태 모델: 극좌표 (L 또는 Y, chroma/sat, hue)로 "지금 선택된 색"을
@@ -59,8 +65,12 @@ document.addEventListener("DOMContentLoaded", () => {
     state.pendingRefresh = false;
     refreshBaseFromForeground(true);
   }
-  // 아래 폴링에 대한 설명은 tryRegisterAutoRefreshListener 근처 주석 참고
-  setInterval(() => refreshBaseFromForeground(false), 500);
+  // 안전망 폴링. 색 변경은 원래 set/exchange/reset 이벤트로 받는다. 이
+  // 폴링은 이벤트가 놓친 경우만을 위한 것이라, 펜 스트로크 중 순간적으로
+  // 잘못 읽힌 값(특히 검정)이 새어나가지 않도록 같은 값이 연속
+  // STABLE_POLL_READS번 읽혀야만 반영하고, 검정은 이 경로로는 절대
+  // 반영하지 않는다(검정은 이벤트 경로로만 들어온다).
+  setInterval(stablePollForeground, STABLE_POLL_MS);
 });
 
 function cacheEls() {
@@ -143,13 +153,22 @@ function connectOverlayApp() {
   }
   overlaySocket.addEventListener("open", () => {
     console.log("[LuminancePicker] 오버레이 앱에 연결됨 (ws://localhost:51837)");
-    sendForegroundToOverlay();
+    try {
+      overlaySocket.send(JSON.stringify({ type: "hello", protocol: OVERLAY_PROTOCOL, version: PLUGIN_VERSION }));
+    } catch (e) { /* 무시 */ }
+    sendForegroundToOverlay(currentRgb(), true);
   });
   overlaySocket.addEventListener("message", (evt) => {
     try {
       const data = JSON.parse(evt.data);
       dlog("[LuminancePicker] 오버레이 앱으로부터 메시지 수신:", JSON.stringify(data));
-      if (data.type === "setColor") pickColorFromRgb(data.r, data.g, data.b, { fromOverlay: true });
+      if (data.type === "setColor") {
+        pickColorFromRgb(data.r, data.g, data.b, { fromOverlay: true }).then((ok) => {
+          if (data.id !== undefined && overlaySocket && overlaySocket.readyState === WebSocket.OPEN) {
+            overlaySocket.send(JSON.stringify({ type: "setResult", id: data.id, ok: !!ok }));
+          }
+        });
+      }
       if (data.type === "activateEyedropper") activateEyedropperTool();
       if (data.type === "activateBrush") activateBrushTool();
     } catch (e) {
@@ -213,7 +232,7 @@ async function setForegroundColorInner(r, g, b) {
            _options: { dialogOptions: "dontDisplay" } }],
         { synchronousExecution: true }
       );
-    }, { commandName: "Set Foreground Color (Luminance Picker)" });
+    }, { commandName: "Set Foreground Color (SHA Paint)" });
     showStatus("", null);
     return true;
   } catch (e1) { console.warn("[LuminancePicker] batchPlay failed, fallback", e1); }
@@ -222,7 +241,7 @@ async function setForegroundColorInner(r, g, b) {
       const color = new app.SolidColor();
       color.rgb.red = r; color.rgb.green = g; color.rgb.blue = b;
       app.foregroundColor = color;
-    }, { commandName: "Set Foreground Color (Luminance Picker, fallback)" });
+    }, { commandName: "Set Foreground Color (SHA Paint, fallback)" });
     showStatus("", null);
     return true;
   } catch (e2) {
@@ -240,7 +259,7 @@ async function activateEyedropperTool() {
         [{ _obj: "select", _target: [{ _ref: "eyedropperTool" }], dontRecord: true, forceNotify: true }],
         { synchronousExecution: true }
       );
-    }, { commandName: "Activate Eyedropper (Luminance Picker)" });
+    }, { commandName: "Activate Eyedropper (SHA Paint)" });
     showStatus("스포이드 모드 — 캔버스를 클릭해 색을 추출하세요", "ok");
   } catch (e) {
     console.error("[LuminancePicker] eyedropper 전환 실패", e);
@@ -257,7 +276,7 @@ async function activateBrushTool() {
         [{ _obj: "select", _target: [{ _ref: "paintbrushTool" }], dontRecord: true, forceNotify: true }],
         { synchronousExecution: true }
       );
-    }, { commandName: "Activate Brush Tool (Luminance Picker)" });
+    }, { commandName: "Activate Brush Tool (SHA Paint)" });
     showStatus("브러시 도구로 복귀했습니다", "ok");
   } catch (e) {
     console.error("[LuminancePicker] 브러시 도구 전환 실패", e);
@@ -425,7 +444,7 @@ function scheduleCommit() {
   commitTimer = setTimeout(async () => {
     const rgb = currentRgb();
     const ok = await setForegroundColorNow(rgb.r, rgb.g, rgb.b);
-    if (ok) { pushHistory(rgb.r, rgb.g, rgb.b); renderHistory(); sendForegroundToOverlay(rgb); }
+    if (ok) { lastFgSnapshot = rgb; pushHistory(rgb.r, rgb.g, rgb.b); renderHistory(); sendForegroundToOverlay(rgb, true); }
   }, COMMIT_DEBOUNCE_MS);
 }
 
@@ -446,10 +465,12 @@ function setBaseFromRgb(r, g, b) {
 async function pickColorFromRgb(r, g, b, options = {}) {
   setBaseFromRgb(r, g, b);
   const ok = await setForegroundColorNow(r, g, b);
-  if (!ok) return;
+  if (!ok) return false;
+  lastFgSnapshot = { r, g, b };
   pushHistory(r, g, b);
   renderAll();
-  if (!options.fromOverlay) sendForegroundToOverlay({ r, g, b });
+  if (!options.fromOverlay) sendForegroundToOverlay({ r, g, b }, true);
+  return true;
 }
 
 let lastFgSnapshot = null;
@@ -463,6 +484,39 @@ function refreshBaseFromForeground(force = false) {
   setBaseFromRgb(rgb.r, rgb.g, rgb.b);
   renderAll();
   sendForegroundToOverlay(rgb);
+}
+
+const STABLE_POLL_MS = 700;
+const STABLE_POLL_READS = 3;
+let stableCandidate = null;
+let stableCount = 0;
+
+function stablePollForeground() {
+  if (!state.ready || suppressAutoRefresh) return;
+  const rgb = readFgOnce();
+  if (!rgb) return;
+  if (stableCandidate && sameRgb(stableCandidate, rgb)) stableCount++;
+  else { stableCandidate = rgb; stableCount = 1; }
+  if (stableCount < STABLE_POLL_READS) return;
+  if (rgb.r === 0 && rgb.g === 0 && rgb.b === 0) return; // 검정은 이벤트 경로로만
+  if (lastFgSnapshot && sameRgb(lastFgSnapshot, rgb)) return;
+  lastFgSnapshot = rgb;
+  dlog(`[LuminancePicker] (안전망 폴링) 이벤트로 못 받은 색 변경 감지: rgb(${rgb.r},${rgb.g},${rgb.b})`);
+  setBaseFromRgb(rgb.r, rgb.g, rgb.b);
+  renderAll();
+  sendForegroundToOverlay(rgb, false);
+}
+
+function sameRgb(a, b) {
+  return !!a && !!b && a.r === b.r && a.g === b.g && a.b === b.b;
+}
+
+function readFgOnce() {
+  try {
+    const fg = app.foregroundColor;
+    const out = { r: Math.round(fg.rgb.red), g: Math.round(fg.rgb.green), b: Math.round(fg.rgb.blue) };
+    return [out.r, out.g, out.b].every((v) => Number.isFinite(v) && v >= 0 && v <= 255) ? out : null;
+  } catch (e) { return null; }
 }
 
 // ---------------------------------------------------------------------
@@ -579,27 +633,92 @@ function wireInteractions() {
 // 안 먹혀도 최소한 지금까지의 동작보다 나빠지지는 않는다.
 // ---------------------------------------------------------------------
 
+// 디스크립터 숫자 값은 그냥 숫자이거나 {_unit, _value} 형태일 수 있다.
+function descNum(v) {
+  if (v && typeof v === "object" && "_value" in v) v = v._value;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : NaN;
+}
+
+function clamp255(v) { return Math.max(0, Math.min(255, Math.round(v))); }
+
+function hsbToRgb(h, s, v) {
+  // h: 0~360, s/v: 0~100
+  s /= 100; v /= 100;
+  const c = v * s, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), m = v - c;
+  let r = 0, g = 0, b = 0;
+  if (h < 60) [r, g, b] = [c, x, 0];
+  else if (h < 120) [r, g, b] = [x, c, 0];
+  else if (h < 180) [r, g, b] = [0, c, x];
+  else if (h < 240) [r, g, b] = [0, x, c];
+  else if (h < 300) [r, g, b] = [x, 0, c];
+  else [r, g, b] = [c, 0, x];
+  return { r: clamp255((r + m) * 255), g: clamp255((g + m) * 255), b: clamp255((b + m) * 255) };
+}
+
+// Photoshop 색 디스크립터 하나를 RGB로 바꾼다. 실패하면 null.
+// [중요 버그 수정] Photoshop 디스크립터에서 RGB의 초록 채널 키는 "green"이
+// 아니라 "grain"이다(액션 매니저 'Grn ' 키의 정식 문자열 ID). 예전 코드는
+// green만 찾아서 스포이드 이벤트의 직접 추출이 실패하고 "재조회" 폴백으로
+// 빠졌다 — 바로 그 재조회가 펜 사용 중 검정을 읽어오는 경로였다.
+function colorDescToRgb(c) {
+  if (!c || typeof c !== "object") return null;
+  const cls = String(c._obj || "");
+  const has = (k) => c[k] !== undefined;
+  let rgb = null;
+  if (has("red") && has("blue") && (has("grain") || has("green"))) {
+    rgb = { r: descNum(c.red), g: descNum(has("grain") ? c.grain : c.green), b: descNum(c.blue) };
+  } else if (cls === "HSBColorClass" || (has("hue") && has("saturation") && has("brightness"))) {
+    rgb = hsbToRgb(((descNum(c.hue) % 360) + 360) % 360, descNum(c.saturation), descNum(c.brightness));
+  } else if (cls === "labColor" || (has("luminance") && has("a") && has("b"))) {
+    rgb = labToRgb(descNum(c.luminance), descNum(c.a), descNum(c.b), true);
+  } else if (cls === "grayscale" || has("gray")) {
+    const v = clamp255(255 * (1 - descNum(c.gray) / 100));
+    rgb = { r: v, g: v, b: v };
+  } else if (cls === "CMYKColorClass" || (has("cyan") && has("magenta") && has("yellowColor"))) {
+    // 근사 변환(색 관리 미적용) — 팔레트 기준색 용도로는 충분하다.
+    const C = descNum(c.cyan) / 100, M = descNum(c.magenta) / 100, Y = descNum(c.yellowColor) / 100, K = descNum(c.black) / 100;
+    rgb = { r: 255 * (1 - C) * (1 - K), g: 255 * (1 - M) * (1 - K), b: 255 * (1 - Y) * (1 - K) };
+  }
+  if (!rgb) return null;
+  const out = { r: Math.round(rgb.r), g: Math.round(rgb.g), b: Math.round(rgb.b) };
+  return [out.r, out.g, out.b].every((v) => Number.isFinite(v) && v >= 0 && v <= 255) ? out : null;
+}
+
 function extractRgbFromSetDescriptor(descriptor) {
-  // 우리 SET 코드와 동일한 구조("to" 키 아래 RGBColor 객체)를 최우선으로
-  // 시도하고, 혹시 다른 표현이면 몇 가지 흔한 변형도 추가로 시도한다.
-  const candidates = [
-    () => descriptor && descriptor.to,
-    () => descriptor && descriptor.to && descriptor.to.value,
-    () => descriptor && descriptor["to"],
-  ];
-  for (const getCandidate of candidates) {
+  if (!descriptor) return null;
+  const candidates = [descriptor.to, descriptor.to && descriptor.to.value, descriptor.to && descriptor.to.color];
+  for (const c of candidates) {
     try {
-      const c = getCandidate();
-      if (!c || typeof c !== "object") continue;
-      const r = Math.round(Number(c.red ?? c.Red ?? c.r));
-      const g = Math.round(Number(c.green ?? c.Green ?? c.g));
-      const b = Math.round(Number(c.blue ?? c.Blue ?? c.b));
-      if ([r, g, b].every((v) => Number.isFinite(v) && v >= 0 && v <= 255)) {
-        return { r, g, b };
-      }
+      const rgb = colorDescToRgb(c);
+      if (rgb) return rgb;
     } catch (e) { /* 다음 후보 시도 */ }
   }
   return null;
+}
+
+// set 이벤트 외의 경로로 전경색이 바뀌는 경우: X(전경/배경 교환), D(기본색).
+// D는 정의상 전경색이 검정이므로 읽지 않고 바로 검정을 신뢰 값으로 보낸다
+// (사용자가 일부러 고른 검정이라 히스토리에 남아야 함). X는 키보드 조작이라
+// 펜 스트로크 중이 아니므로, 짧게 기다렸다가 두 번 읽어 같을 때만 신뢰한다.
+function applyEventColor(rgb, why) {
+  dlog(`[LuminancePicker] ${why}: rgb(${rgb.r},${rgb.g},${rgb.b})`);
+  lastFgSnapshot = rgb;
+  setBaseFromRgb(rgb.r, rgb.g, rgb.b);
+  pushHistory(rgb.r, rgb.g, rgb.b);
+  renderAll();
+  sendForegroundToOverlay(rgb, true);
+}
+
+function confirmedReadAfterEvent(why) {
+  setTimeout(() => {
+    const a = readFgOnce();
+    setTimeout(() => {
+      const b = readFgOnce();
+      if (a && b && sameRgb(a, b)) applyEventColor(b, why);
+      else dlog(`[LuminancePicker] ${why}: 두 번 읽은 값이 달라 무시 (안전망 폴링에 맡김)`);
+    }, 120);
+  }, 80);
 }
 
 let setEventDiagnosticLogCount = 0;
@@ -611,7 +730,9 @@ function tryRegisterAutoRefreshListener() {
       if (suppressAutoRefresh) return;
       try {
         const target = descriptor && descriptor._target;
-        const touches = Array.isArray(target) && target.some((t) => t && (t._property === "foregroundColor" || t._ref === "color"));
+        // 배경색 변경(Alt+스포이드 등)도 _ref:"color"라서 예전엔 전경색으로
+        // 오인됐다. 전경색 대상만 받는다.
+        const touches = Array.isArray(target) && target.some((t) => t && (t._property === "foregroundColor" || (t._ref === "color" && !t._property)));
         if (!touches) return;
 
         if (setEventDiagnosticLogCount < SET_EVENT_DIAGNOSTIC_LOG_MAX) {
@@ -633,15 +754,30 @@ function tryRegisterAutoRefreshListener() {
           return;
         }
 
-        // 직접 추출 실패 — 예전처럼 "이벤트가 왔으니 다시 읽어보기"로 폴백.
-        dlog("[LuminancePicker] set 이벤트에서 색상 직접 추출 실패, 재조회로 폴백");
-        refreshBaseFromForeground(true);
+        // 직접 추출 실패(별색/라이브러리 색 등) — 검증된 재조회로 폴백.
+        dlog("[LuminancePicker] set 이벤트에서 색상 직접 추출 실패, 검증 재조회로 폴백");
+        confirmedReadAfterEvent("set 이벤트(추출 실패) 후 재조회");
       } catch (e) {
         console.warn("[LuminancePicker] set 이벤트 처리 중 오류, 무시하고 계속 진행", e);
       }
     });
   } catch (e) {
     console.warn("[LuminancePicker] addNotificationListener unavailable", e);
+  }
+  try {
+    action.addNotificationListener(["reset"], (event, descriptor) => {
+      if (suppressAutoRefresh) return;
+      // "reset"은 색 말고 다른 대상(도구 초기화 등)에도 쓰이므로 색 대상만 받는다.
+      const target = descriptor && descriptor._target;
+      if (Array.isArray(target) && !target.some((t) => t && t._ref === "color")) return;
+      applyEventColor({ r: 0, g: 0, b: 0 }, "기본 색상(D) 이벤트");
+    });
+    action.addNotificationListener(["exchange"], () => {
+      if (suppressAutoRefresh) return;
+      confirmedReadAfterEvent("전경/배경 교환(X) 이벤트");
+    });
+  } catch (e) {
+    console.warn("[LuminancePicker] reset/exchange 리스너 등록 실패", e);
   }
 }
 

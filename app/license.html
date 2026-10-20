@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'" />
+  <link rel="stylesheet" href="settings.css" />
+  <style>
+    .key-field {
+      width: 100%;
+      background: #1f1f23;
+      border: 1px solid #3a3a40;
+      border-radius: 4px;
+      padding: 8px 10px;
+      color: #fff;
+      font: 600 13px Consolas, "Segoe UI", monospace;
+      letter-spacing: 0.5px;
+    }
+    .key-field:focus { outline: none; border-color: #4a7cff; }
+    .status { min-height: 18px; font-size: 12px; color: #bbb; }
+    .status.error { color: #ff7a7a; }
+    .status.ok { color: #6fd38b; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>SHA Paint 라이선스</h1>
+    <div class="row">
+      <label for="keyInput">구매 확인 메일에 있는 라이선스 키를 붙여넣으세요.</label>
+      <input id="keyInput" class="key-field" type="text" spellcheck="false" autocomplete="off"
+             placeholder="XXXXXXXX-XXXXXXXX-XXXXXXXX-XXXXXXXX" />
+      <div id="status" class="status"></div>
+    </div>
+    <div class="actions">
+      <button id="activateBtn" class="save-btn">확인</button>
+    </div>
+    <p class="note">키 확인에는 인터넷 연결이 필요합니다. 한 번 확인되면 오프라인에서도 계속 사용할 수 있습니다.</p>
+  </div>
+  <script src="license-window.js"></script>
+</body>
+</html>

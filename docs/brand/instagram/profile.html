@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<title>SHA Studio Profile</title>
+<!--
+  인스타그램 프로필 사진 원본 (1080x1080, 원형으로 잘려도 안전하게 중앙 배치).
+  링 = 같은 명도(L*)의 색상환 — 앱의 실제 색 계산(../../../app/colorMath.js)으로 칠한다.
+  render-profile.js가 캡처한다.
+-->
+<style>
+  @font-face { font-family: "Serif"; src: local("Noto Serif Bold"), local("NotoSerif-Bold"), url("file:///C:/Windows/Fonts/NotoSerif-Bold.ttf"); font-weight: 700; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1080px; background: #1c1a1f; overflow: hidden; }
+  canvas { position: absolute; left: 0; top: 0; }
+  .mark { position: absolute; left: 0; right: 0; top: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .sha { font-family: "Serif", serif; font-weight: 700; font-size: 240px; letter-spacing: 4px; padding-left: 4px; color: #f2ede4; line-height: 1; transform: translateY(-14px); }
+  .studio { margin-top: 18px; font-family: "Segoe UI", sans-serif; font-weight: 700; font-size: 54px; letter-spacing: 22px; color: #e8a33d; padding-left: 22px; }
+</style>
+<script src="../../../app/colorMath.js"></script>
+</head>
+<body>
+<canvas id="ring" width="1080" height="1080"></canvas>
+<div class="mark"><div class="sha">SHA</div><div class="studio">STUDIO</div></div>
+<script>
+  const CM = window.ColorMath;
+  const L = 70;                 // 링 전체가 같은 명도
+  const cv = document.getElementById("ring"), ctx = cv.getContext("2d");
+  const cx = 540, cy = 540, rOut = 470, rIn = 405;
+  // 각 색상(hue)에서 이 명도로 가능한 최대 채도의 90% — 모든 색이 같은 밝기
+  for (let deg = 0; deg < 360; deg += 0.5) {
+    const c = CM.findMaxChromaForHue(L, deg) * 0.9;
+    const { a, b } = CM.polarToAB(c, deg);
+    const rgb = CM.labToRgb(L, a, b, true);
+    const a0 = (deg - 90) * Math.PI / 180, a1 = (deg + 0.7 - 90) * Math.PI / 180;
+    ctx.beginPath();
+    ctx.arc(cx, cy, rOut, a0, a1);
+    ctx.arc(cx, cy, rIn, a1, a0, true);
+    ctx.closePath();
+    ctx.fillStyle = `rgb(${rgb.r},${rgb.g},${rgb.b})`;
+    ctx.fill();
+  }
+  document.fonts.ready.then(() => { window.__ready = true; });
+</script>
+</body>
+</html>

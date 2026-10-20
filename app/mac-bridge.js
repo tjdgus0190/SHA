@@ -246,6 +246,10 @@ function startBridge(onColorChanged, onPhotoshopGone, onPhotoshopAlive) {
   pollTick();
 }
 
+// com-bridge.js와 인터페이스를 맞추기 위한 자리. macOS 폴링은 아직
+// 일시정지를 지원하지 않는다(실기 검증 전).
+function setPolling(_enabled) {}
+
 function stopBridge() {
   watcherStopped = true;
   if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
@@ -256,5 +260,6 @@ module.exports = {
   setForegroundColor,
   activateTool,
   testConnection,
+  setPolling,
   stopBridge
 };

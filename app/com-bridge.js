@@ -56,6 +56,7 @@ let bridgeStopped = false;
 let pendingQueue = []; // 명령 응답을 순서대로 매칭하기 위한 FIFO 큐
 let lastSpawnTime = 0;
 let watchdogTimer = null;
+let desiredPolling = true; // main.js가 원하는 COM 전경색 폴링 상태 (재연결 시 다시 전송)
 
 // PowerShell이 Node의 TCP 서버에 접속해서 계속 도는 스크립트.
 // - Test-PhotoshopRunning으로 매번 확인 후에만 COM 호출 (Photoshop이
@@ -108,7 +109,50 @@ $writer.AutoFlush = $true
 $app = $null
 $lastReported = $null
 $prevRead = $null
+$sameCount = 0
 $everReportedAlive = $false
+# UXP 패널이 연결되면 Node가 POLL OFF를 보내서 COM 전경색 읽기를 멈춘다
+# (UXP set 이벤트가 정답을 주므로, 펜 스트로크 중 COM을 계속 두드릴
+# 이유가 없다 — 오히려 Photoshop을 바쁘게 만든다). Photoshop 생존 확인은
+# 계속한다.
+$pollEnabled = $true
+# 검정은 일반 색보다 훨씬 길게 연속으로 읽혀야만 보고한다. 글리치 검정은
+# 펜 스트로크 동안 "순간적으로" 나타났다 원래 색으로 돌아오므로 이
+# 안정화 구간을 통과하지 못한다. 스포이드/D키로 고른 진짜 검정은 계속
+# 검정으로 남아 있으니 약 0.5초 뒤에 정상 보고된다.
+$STABLE_READS_NORMAL = 2
+$STABLE_READS_BLACK = 5
+
+# 전경색을 "검증해서" 읽는다. 예전 코드는
+#   $c = $app.ForegroundColor.RGB; "$([int]$c.Red),..."
+# 였는데, Photoshop이 펜 입력 처리로 바쁠 때 COM 속성 읽기가 예외 없이
+# $null을 돌려주면 [int]$null = 0 이라서 그대로 "0,0,0"(검정)이 보고됐다.
+# 이것이 와콤 펜 검정 전환의 유력한 근본 원인이다. 이제 중간 객체나
+# 채널 값이 하나라도 $null이면 "읽기 실패"($null)로 처리해서 보고하지
+# 않고, 검정일 때는 HexValue까지 교차 확인한다.
+function Read-ForegroundColor {
+  try {
+    $fg = $app.ForegroundColor
+    if ($null -eq $fg) { return $null }
+    $rgb = $fg.RGB
+    if ($null -eq $rgb) { return $null }
+    $cr = $rgb.Red
+    $cg = $rgb.Green
+    $cb = $rgb.Blue
+    if ($null -eq $cr -or $null -eq $cg -or $null -eq $cb) { return $null }
+    $ir = [int][Math]::Round([double]$cr)
+    $ig = [int][Math]::Round([double]$cg)
+    $ib = [int][Math]::Round([double]$cb)
+    if ($ir -lt 0 -or $ir -gt 255 -or $ig -lt 0 -or $ig -gt 255 -or $ib -lt 0 -or $ib -gt 255) { return $null }
+    if ($ir -eq 0 -and $ig -eq 0 -and $ib -eq 0) {
+      $hex = $rgb.HexValue
+      if ($null -eq $hex -or "$hex" -ne "000000") { return $null }
+    }
+    return "$($ir),$($ig),$($ib)"
+  } catch {
+    return $null
+  }
+}
 
 function Get-App {
   if (-not (Test-PhotoshopRunning)) { $script:app = $null; return $null }
@@ -199,6 +243,16 @@ while ($client.Connected) {
           $writer.WriteLine((Invoke-SetColor $matches[1] $matches[2] $matches[3]))
         } elseif ($line -match '^TOOL (.+)$') {
           $writer.WriteLine((Invoke-SelectTool $matches[1]))
+        } elseif ($line -eq "POLL ON") {
+          $pollEnabled = $true
+          # 재개 직후 현재 색을 한 번 다시 보고하도록 상태를 비운다
+          $lastReported = $null
+          $prevRead = $null
+          $sameCount = 0
+          $writer.WriteLine("POLL_OK")
+        } elseif ($line -eq "POLL OFF") {
+          $pollEnabled = $false
+          $writer.WriteLine("POLL_OK")
         } elseif ($line -eq "TEST") {
           try {
             $c = $app.ForegroundColor.RGB
@@ -217,22 +271,23 @@ while ($client.Connected) {
       $script:everReportedAlive = $true
     }
     $app = Get-App
-    if ($null -ne $app) {
-      $current = $null
-      try {
-        $c = $app.ForegroundColor.RGB
-        $current = "$([int]$c.Red),$([int]$c.Green),$([int]$c.Blue)"
-      } catch {}
-      if ($null -ne $current -and $current -eq $prevRead -and $current -ne $lastReported) {
-        # [v7.3, v7.7에서 시도했다가 둘 다 되돌림] 도구 태그(CurrentTool
-        # 직접 읽기, DoJavaScript로 우회) 둘 다 실측 결과 매번
-        # toolName=''만 반환해서 사실상 죽은 신호였다. 태그 없이(null)
-        # 그대로 보고하고, 실제로 작동이 확인된 Node 쪽 2차 방어(왕복
-        # 감지+세션 학습)와 3차 방어(SET 그레이스)에 맡긴다.
-        $writer.WriteLine("COLOR $current")
-        $lastReported = $current
+    if ($null -ne $app -and $pollEnabled) {
+      $current = Read-ForegroundColor
+      # 읽기 실패($null)는 아예 없었던 일로 친다 — 안정화 카운트도
+      # 초기화하지 않고 다음 루프에서 다시 읽는다.
+      if ($null -ne $current) {
+        if ($current -eq $prevRead) { $sameCount++ } else { $sameCount = 1 }
+        $prevRead = $current
+        $need = $STABLE_READS_NORMAL
+        if ($current -eq "0,0,0") { $need = $STABLE_READS_BLACK }
+        if ($sameCount -ge $need -and $current -ne $lastReported) {
+          # [v7.3, v7.7에서 시도했다가 둘 다 되돌림] 도구 태그(CurrentTool
+          # 직접 읽기, DoJavaScript로 우회) 둘 다 실측 결과 매번
+          # toolName=''만 반환해서 사실상 죽은 신호였다. 태그 없이 보고한다.
+          $writer.WriteLine("COLOR $current")
+          $lastReported = $current
+        }
       }
-      $prevRead = $current
     }
   } else {
     if ($null -ne $app -or $null -eq $lastReported) {
@@ -241,6 +296,7 @@ while ($client.Connected) {
     $app = $null
     $lastReported = $null
     $prevRead = $null
+    $sameCount = 0
   }
 
   Start-Sleep -Milliseconds ${LOOP_INTERVAL_MS}
@@ -257,6 +313,9 @@ function startBridge(onColorChanged, onPhotoshopGone, onPhotoshopAlive) {
     console.log("[com-bridge] PowerShell 브릿지 연결됨");
     clientSocket = socket;
     socket.setEncoding("utf8");
+    // PowerShell 프로세스가 재시작되면 폴링 상태가 기본값(ON)으로
+    // 돌아가므로, 꺼둔 상태였다면 다시 알려준다.
+    if (!desiredPolling) sendCommand("POLL OFF");
 
     let buffer = "";
     socket.on("data", (chunk) => {
@@ -432,6 +491,15 @@ function testConnection() {
   });
 }
 
+// UXP 패널이 연결돼 있는 동안에는 COM 전경색 읽기를 멈춘다(펜 스트로크
+// 중 Photoshop을 불필요하게 두드리지 않도록). Photoshop 생존 감지는 계속된다.
+function setPolling(enabled) {
+  enabled = !!enabled;
+  if (enabled === desiredPolling) return;
+  desiredPolling = enabled;
+  if (clientSocket) sendCommand(enabled ? "POLL ON" : "POLL OFF");
+}
+
 function stopBridge() {
   bridgeStopped = true;
   if (watchdogTimer) { clearInterval(watchdogTimer); watchdogTimer = null; }
@@ -444,5 +512,6 @@ module.exports = {
   setForegroundColor,
   activateTool,
   testConnection,
+  setPolling,
   stopBridge
 };

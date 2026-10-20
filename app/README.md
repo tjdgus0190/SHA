@@ -5,6 +5,73 @@
 클릭 가능한 컬러 팝업이 뜨고, 타일을 클릭하면 즉시 Photoshop 전경색으로
 적용됩니다.**
 
+## v8.9 변경사항 — 설치 중 라이선스 키 입력 + 브랜드/ID 정리
+
+### 라이선스 키
+- 인스톨러를 원클릭 → 마법사형으로 바꾸고 **라이선스 키 입력 페이지** 추가
+  (`build/installer.nsh`, UTF-8 BOM 필수). 키는
+  `%APPDATA%\luminance-overlay-app\license-key.txt`에 저장되고, 재설치 때
+  미리 채워진다.
+- `licensing.js`: 첫 실행 때 Gumroad License API로 확인. 첫 활성화 때만
+  사용 횟수 증가, 3대 초과/환불/차지백 거부, 7일마다 재확인, 오프라인
+  30일 유예. 미확인이면 팔레트 대신 키 입력 창(`license.html`)이 뜨고,
+  트레이 메뉴 "라이선스 키 입력..."으로 언제든 다시 열 수 있다.
+- **출시 전 필수**: `licensing.js`의 `GUMROAD_PRODUCT_ID`를 채울 것. 비어
+  있으면 개발 모드(확인 생략) — `verify.js`가 WARN으로 알려준다.
+
+### 브랜드/ID
+- 번들 플러그인 `tourbox-luminance-picker.ccx` → `sha-paint-plugin.ccx`
+  (`scripts/pack-plugin.py`로 재패키징, README 제외).
+- appId `com.shastudio.shapaint`, author/copyright `SHA Studio`.
+- UXP 플러그인 ID `com.shastudio.shapaint`, 이름/패널 제목 `SHA Paint`.
+  **ID가 바뀌어 새 플러그인으로 인식되므로, 기존 사용자는 예전
+  "Luminance Picker" 플러그인 폴더를 지워야 한다**(둘 다 켜져 있으면
+  두 패널이 동시에 연결을 시도함).
+- 코드 주석의 타사 브랜드 언급 제거.
+
+## v8.8 변경사항 — 와콤 펜 검정 전환 근본 원인 수정 + 사용성 개선
+
+### 검정 전환: 찾은 근본 원인 2가지
+1. **COM 읽기 null → 검정** (`com-bridge.js`): Photoshop이 펜 입력 처리로
+   바쁠 때 `$app.ForegroundColor.RGB`가 예외 없이 `$null`을 주면
+   `[int]$null = 0`이라 그대로 `COLOR 0,0,0`이 보고됐다. 이제
+   `Read-ForegroundColor`가 중간 객체/채널이 하나라도 `$null`이면 "읽기
+   실패"로 버리고, 검정은 `HexValue == "000000"` 교차 확인 + 5회 연속(약
+   0.5초) 안정돼야만 보고한다.
+2. **UXP `grain` 키** (`uxp-plugin/index.js`): Photoshop 디스크립터의
+   초록 채널 키는 `green`이 아니라 `grain`이라 스포이드 `set` 이벤트의 직접
+   추출이 항상 실패하고, 매번 "재조회"(=펜 중 검정을 읽는 경로)로
+   빠지고 있었다. 또 500ms 폴링이 읽은 값을 검증 없이 오버레이로 보냈다.
+   → `grain`/HSB/Lab/Gray/CMYK 디스크립터 지원, 폴링은 "3회 연속 동일 +
+   검정 제외" 안전망으로 축소, D(`reset`)/X(`exchange`) 이벤트 직접 처리.
+
+### 추가 방어 (`main.js`)
+- **0차 방어(검정 보류 700ms)**: 신뢰 못 하는 경로의 검정은 0.7초 보류,
+  그 사이 다른 색이 오면 화면/히스토리에 한 번도 안 나타나고 폐기.
+- 왕복 글리치(색X→검정→색X)는 **첫 회부터** 히스토리에서 제거.
+- UXP 연결 중엔 COM 전경색 폴링 자체를 정지(`POLL OFF`) — Photoshop 부하 감소.
+
+### 사용성
+- 색 적용: UXP v2 플러그인이 연결돼 있으면 UXP로만 SET하고 실패/1.5초
+  무응답 시에만 COM 재시도(예전엔 항상 이중 SET → 혼잡/실패 원인).
+- 배경색 변경(Alt+스포이드)이 전경색으로 오인되던 버그 수정.
+- 팝업에 닫기(×) 버튼 추가(Esc가 안 먹는 환경 대비).
+- 팝업이 열린 상태에서 고른 색이 히스토리 줄에 즉시 반영.
+- 히스토리 중복 제거(같은 색은 맨 앞으로) + **앱 재시작 후에도 유지**
+  (`%APPDATA%\luminance-overlay-app\sha-paint-history.json`).
+- 로그 파일 5MB 회전, 150ms마다 쌓이던 "Photoshop 비활성" 로그와 클릭마다
+  찍히던 마우스 로그 제거. UXP 플러그인 로그가 이제 앱 로그에 `[uxp]`로 남음.
+
+### 배포 주의
+- **UXP 플러그인도 반드시 같이 교체**(manifest 1.1.0). 구버전 플러그인이면
+  예전 이중 SET 방식으로 동작하고 grain 수정이 적용되지 않는다.
+- 번들 `.ccx`(`resources/tourbox-luminance-picker.ccx`)는 재패키징 필요.
+
+**검증**: `verify.js`, `test-black-glitch.js`(9개 시나리오),
+`test-uxp-plugin.js`(모의 Photoshop 11개), `test-com-bridge-ps.js`(실제
+PowerShell로 PS_SCRIPT 실행, 모의 COM 객체 7케이스 + TCP 프로토콜) 전부 통과.
+**실제 와콤 펜 + Photoshop 실기 검증은 아직 안 됨.**
+
 ## v8.7 변경사항 — 자동 트리거/숨김 기능 전체 정리
 
 ### 확정된 결론

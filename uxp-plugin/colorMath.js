@@ -7,7 +7,7 @@
  *
  * 두 가지 휘도 정의를 모두 지원한다:
  *  1) LAB  모드: CIE Lab의 L* (지각적 명도, 실제로 사람이 "밝기가 같다"고
- *     느끼는 것과 가장 가까움). TourBox / 대부분의 "동명도 팔레트" 도구가
+ *     느끼는 것과 가장 가까움). 대부분의 "동명도 팔레트" 도구가
  *     이 방식을 사용한다.
  *  2) LUMA 모드: ITU-R BT.709 상대휘도 Y (선형 RGB 가중합, WCAG에서
  *     쓰는 그 공식). 모니터 물리 휘도 기준으로 맞추고 싶을 때 사용.
@@ -300,7 +300,7 @@ function generateLabTiles(L, { hueSteps = 12, chromaSteps = 5, hueOffsetDeg = 0,
  * 평면)의 한 점이며, 이 함수는 그 점이 sRGB 색역 안이면 실제 RGB를,
  * 밖이면 null을 반환한다. 캔버스 쪽에서 그대로 픽셀 색 or 투명 처리하면
  * 자동으로 "그 밝기에서 실제 표현 가능한 색의 진짜 경계 모양"이 그려진다
- * (TourBox의 비정형 블롭 UI가 바로 이것과 동일한 원리).
+ * (비정형 블롭 UI가 바로 이 원리).
  */
 function labFieldPixel(L, a, b, clamp = false) {
   return labToRgb(L, a, b, clamp);

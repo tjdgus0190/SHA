@@ -7,7 +7,7 @@ SHA Paint 디자인 담당.
 
 원칙
 - 작업 중 방해가 되지 않는 UI가 최우선(그림 그리는 도중 쓰는 팝업). 시각 요소는 최소·명확하게.
-- 기존 UI 파일: `app/overlay.html|css|js`, `app/status-panel.*`, `app/settings.*`, `sh-paint-landing.html`.
+- 기존 UI 파일: `app/overlay.html|css|js`, `app/status-panel.*`, `app/settings.*`, `site/index.html`.
 - UI를 수정하면 jsdom으로 렌더/동작을 확인하고, 시각 확인이 불가능하면 그 사실을 보고한다.
 - 원본 로고·브랜드·캐릭터를 모방하지 않는다. Adobe/Photoshop 로고 사용 금지(텍스트 언급은 호환성 표기 정도로만).
 

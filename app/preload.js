@@ -30,6 +30,12 @@ contextBridge.exposeInMainWorld("overlayAPI", {
   pickColor: (r, g, b) => {
     ipcRenderer.send("popup-color-picked", { r, g, b });
   },
+  onHistory: (callback) => {
+    ipcRenderer.on("popup-history", (_event, history) => callback(history));
+  },
+  closePopup: () => {
+    ipcRenderer.send("popup-close-request");
+  },
   onApplyFailed: (callback) => {
     ipcRenderer.on("popup-apply-failed", () => callback());
   },

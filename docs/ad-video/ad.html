@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<title>SHA Paint 15초 광고 — 모션그래픽 원본</title>
+<!--
+  SHA Paint 15초 광고 (모션그래픽 원본)
+  ------------------------------------------------------------------
+  - 열기만 하면 브라우저에서 반복 재생된다(미리보기). 스페이스=일시정지, 좌/우=0.5초 이동.
+  - 파라미터: ?ar=9x16 (기본) | ?ar=16x9
+              &cta=버튼문구  &url=하단문구   (판매 URL/체험 여부 확정 전이라 기본값은 중립 문구)
+              &render=1  → 자동재생 끔. window.renderAt(t)로 프레임 단위 결정적 렌더(render/render.js가 사용)
+  - 팝업 필드/명도 바는 앱의 실제 색 계산 파일(../../app/colorMath.js)로 그린다.
+    팝업 레이아웃/색상은 app/overlay.html + overlay.css (v8.7 커밋 기준)를 그대로 옮긴 것.
+  - 화면 속 "드로잉 앱"은 특정 제품 UI가 아닌 연출용 목업이다(영상에 '연출 화면' 표기).
+-->
+<style>
+  @font-face { font-family: "AdKR"; src: local("Noto Sans KR"), local("NotoSansKR"), url("file:///C:/Windows/Fonts/NotoSansKR-VF.ttf"); font-weight: 100 900; }
+  @font-face { font-family: "AdKRFallback"; src: local("Malgun Gothic"), local("맑은 고딕"); }
+  @font-face { font-family: "AdSerif"; src: local("Noto Serif Bold"), local("NotoSerif-Bold"), url("file:///C:/Windows/Fonts/NotoSerif-Bold.ttf"); font-weight: 700; }
+
+  :root {
+    --bg: #1c1a1f;
+    --bg-raised: #242128;
+    --ink: #f2ede4;
+    --ink-dim: #a79f97;
+    --ink-faint: #75706b;
+    --gold: #e8a33d;
+    --gold-ink: #241a08;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #000; overflow: hidden; }
+  body { font-family: "AdKR", "AdKRFallback", "Malgun Gothic", sans-serif; -webkit-font-smoothing: antialiased; }
+
+  #stage { position: relative; overflow: hidden; background: var(--bg); color: var(--ink); transform-origin: 0 0; }
+  #stage .hue-strip { position: absolute; left: 0; right: 0; top: 0; height: 10px;
+    background: linear-gradient(90deg,#f34b8e,#f45351,#d4711e,#a58920,#709821,#2d9f59,#2d9b8a,#3099a4,#3396bb,#3890dd,#887cf1,#ec36e1,#f34b8e); }
+  #glow { position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(ellipse at 50% 60%, rgba(232,163,61,0.07), rgba(0,0,0,0) 60%); }
+
+  #brand { position: absolute; font-family: "AdSerif", serif; font-weight: 700; color: var(--ink-dim); letter-spacing: -0.01em; }
+
+  #caption { position: absolute; }
+  #caption .l1, #caption .l2 { font-weight: 800; line-height: 1.12; letter-spacing: -0.02em; white-space: nowrap; }
+  #caption .l1 { color: var(--ink); }
+  #caption .l2 { color: var(--gold); font-weight: 900; }
+  #caption .sub { color: var(--ink-dim); font-weight: 500; margin-top: 0.5em; white-space: nowrap; }
+
+  #appCanvas { position: absolute; border-radius: 18px; box-shadow: 0 30px 80px rgba(0,0,0,0.55); }
+  #fx { position: absolute; left: 0; top: 0; pointer-events: none; }
+  #disclaimer { position: absolute; color: var(--ink-faint); font-weight: 500; white-space: nowrap; }
+
+  /* ---------- 팝업: app/overlay.css (v8.7) 를 .sp-popup 범위로 옮긴 것 ---------- */
+  .sp-popup {
+    position: absolute; left: 0; top: 0;
+    width: 300px; height: 340px; /* main.js POPUP_WIDTH / POPUP_HEIGHT */
+    background: #2b2b2f; border-radius: 14px; box-shadow: 0 8px 28px rgba(0,0,0,0.55);
+    display: flex; flex-direction: column; padding: 10px; gap: 8px;
+    font-family: -apple-system, "Segoe UI", sans-serif; font-size: 12px; color: #ddd;
+    transform-origin: 0 0;
+  }
+  .sp-popup .top-bar { display: flex; align-items: center; justify-content: flex-end; min-height: 18px; }
+  .sp-popup .top-icons { display: flex; gap: 6px; }
+  .sp-popup .icon-btn { background: #3d3d42; border: 1px solid #1c1c1f; color: #ddd; border-radius: 5px; width: 24px; height: 24px;
+    display: flex; align-items: center; justify-content: center; padding: 0; }
+  .sp-popup .field-wrap { position: relative; background: #3a3a3f; border-radius: 6px; overflow: hidden; flex: 1; min-height: 100px; }
+  .sp-popup canvas.field { display: block; width: 100%; height: 100%; }
+  .sp-popup .field-cursor { position: absolute; width: 14px; height: 14px; left: 0; top: 0; transform: translate(-50%, -50%);
+    border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.6), 0 1px 4px rgba(0,0,0,0.5); }
+  .sp-popup .lightness-slider-row { padding: 2px; }
+  .sp-popup .lightness-outer { position: relative; height: 14px; border-radius: 7px; background: #1c1c1f; border: 1px solid #111; }
+  .sp-popup .lightness-track { position: absolute; top: 0; height: 100%; border-radius: 7px; background: linear-gradient(to right, #000, #fff);
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.15); }
+  .sp-popup .lightness-handle { position: absolute; top: -3px; width: 8px; height: 20px; left: 50%; background: #eee; border: 1px solid #111;
+    border-radius: 3px; transform: translateX(-50%); box-shadow: 0 1px 4px rgba(0,0,0,0.6); }
+  .sp-popup .bottom-row { display: flex; align-items: center; gap: 10px; }
+  .sp-popup .swatch-stack { position: relative; width: 30px; height: 30px; flex: none; }
+  .sp-popup .swatch { position: absolute; width: 22px; height: 22px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.5); }
+  .sp-popup .swatch.back { right: 0; bottom: 0; }
+  .sp-popup .swatch.front { left: 0; top: 0; box-shadow: 0 1px 4px rgba(0,0,0,0.5); }
+  .sp-popup .history-row { display: flex; align-items: center; gap: 5px; flex: 1; min-width: 0; overflow: hidden; }
+  .sp-popup .history-swatch { width: 18px; height: 18px; flex: none; border-radius: 4px; border: 1px solid rgba(255,255,255,0.15); }
+  .sp-popup .history-swatch.hot { border-color: #fff; box-shadow: 0 0 0 2px rgba(232,163,61,0.9); }
+  .sp-popup .hist-ring { position: absolute; border: 2px solid var(--gold); border-radius: 8px; pointer-events: none; }
+
+  /* ---------- 펜 ---------- */
+  #pen { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
+  #chip { position: absolute; background: var(--gold); color: var(--gold-ink); font-weight: 800; border-radius: 999px; white-space: nowrap; }
+
+  /* ---------- 엔드카드 ---------- */
+  #end { position: absolute; inset: 0; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+  #end .hue-strip { top: auto; bottom: 0; }
+  #end .hue-strip.top { top: 0; bottom: auto; }
+  #end canvas { display: block; background: #3a3a3f; border-radius: 18px; box-shadow: 0 0 0 14px #2b2b2f, 0 20px 60px rgba(0,0,0,0.5); }
+  #end .word { font-family: "AdSerif", serif; font-weight: 700; color: var(--ink); letter-spacing: -0.01em; line-height: 1; }
+  #end .tag { font-weight: 800; color: var(--ink); letter-spacing: -0.02em; }
+  #end .tag b { color: var(--gold); font-weight: 900; }
+  #end .meta { color: var(--ink-dim); font-weight: 500; }
+  #end .cta { background: var(--gold); color: var(--gold-ink); font-weight: 800; border-radius: 14px; }
+  #end .url { color: var(--ink-dim); font-weight: 500; }
+
+  #hud { position: fixed; right: 8px; bottom: 8px; font: 12px monospace; color: #888; }
+</style>
+<script src="../../app/colorMath.js"></script>
+</head>
+<body>
+<div id="stage">
+  <div class="hue-strip"></div>
+  <div id="glow"></div>
+  <div id="brand">SHA Paint</div>
+  <div id="caption"><div class="l1"></div><div class="l2"></div><div class="sub"></div></div>
+  <canvas id="appCanvas" width="960" height="900"></canvas>
+  <div id="disclaimer">연출 화면 · 팝업은 실제 앱 UI와 색 계산(colorMath.js)으로 재현</div>
+  <canvas id="fx"></canvas>
+
+  <!-- app/overlay.html (v8.7) 구조 그대로 -->
+  <div class="sp-popup" id="popup">
+    <div class="top-bar">
+      <div class="top-icons">
+        <button class="icon-btn" tabindex="-1">
+          <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M12 2a10 10 0 100 20 10 10 0 000-20zm0 2a8 8 0 018 8h-8V4zm-2 0v8H2a8 8 0 018-8zm-8 10h8v8a8 8 0 01-8-8zm10 8v-8h8a8 8 0 01-8 8z"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="field-wrap" id="fieldWrap">
+      <canvas class="field" id="fieldCanvas"></canvas>
+      <div class="field-cursor" id="fieldCursor"></div>
+    </div>
+    <div class="lightness-slider-row">
+      <div class="lightness-outer"><div class="lightness-track" id="lTrack"><div class="lightness-handle" id="lHandle"></div></div></div>
+    </div>
+    <div class="bottom-row" id="bottomRow">
+      <div class="swatch-stack">
+        <div class="swatch back" id="prevSwatch"></div>
+        <div class="swatch front" id="curSwatch"></div>
+      </div>
+      <div class="history-row" id="historyRow"></div>
+    </div>
+    <div class="hist-ring" id="histRing"></div>
+  </div>
+
+  <svg id="pen" width="10" height="10">
+    <defs>
+      <filter id="penShadow" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="6" dy="10" stdDeviation="7" flood-color="#000" flood-opacity="0.45"/></filter>
+    </defs>
+    <g id="brushRing"><circle id="brushCircle" r="20" fill="none" stroke="#fff" stroke-width="2"/><circle id="brushCircle2" r="20" fill="none" stroke="#000" stroke-width="1" opacity="0.6"/></g>
+    <g id="penBody" filter="url(#penShadow)">
+      <g transform="rotate(28) scale(0.86)">
+        <polygon points="0,0 -6,-24 6,-24" fill="#cfcfd4"/>
+        <rect x="-11" y="-120" width="22" height="98" rx="9" fill="#232326"/>
+        <rect x="-4" y="-104" width="8" height="30" rx="3" fill="#4a4a50"/>
+        <rect x="-10" y="-262" width="20" height="146" rx="9" fill="#3a3a40"/>
+        <rect x="-6" y="-255" width="3" height="130" rx="1.5" fill="#5a5a62"/>
+        <rect x="-9" y="-270" width="18" height="14" rx="6" fill="#232326"/>
+      </g>
+    </g>
+  </svg>
+  <div id="chip">중클릭</div>
+
+  <div id="end">
+    <div class="hue-strip top"></div>
+    <canvas id="endField"></canvas>
+    <div class="word">SHA Paint</div>
+    <div class="tag">펜 옆의 <b>동명도 팔레트</b></div>
+    <div class="meta">Photoshop용 · Windows 10/11</div>
+    <div class="cta" id="ctaBtn"></div>
+    <div class="url" id="urlLine"></div>
+    <div class="hue-strip"></div>
+  </div>
+</div>
+<div id="hud"></div>
+
+<script>
+(() => {
+"use strict";
+const CM = window.ColorMath;
+const params = new URLSearchParams(location.search);
+const AR = params.get("ar") === "16x9" ? "16x9" : "9x16";
+const RENDER = params.get("render") === "1";
+// ?lang=en → 영문판 (해외 광고용). 기본은 한국어.
+const LANG = params.get("lang") === "en" ? "en" : "ko";
+const I18N = {
+  ko: {
+    cta: "지금 만나보기", url9: "링크는 프로필에서", url16: "링크는 설명란에서",
+    chip: "중클릭", tag: "펜 옆의 <b>동명도 팔레트</b>", meta: "Photoshop용 · Windows 10/11",
+    disclaimer: "연출 화면 · 팝업은 실제 앱 UI와 색 계산(colorMath.js)으로 재현",
+    color: "색상", fg: "전경색", layers: "레이어", layerNames: ["채색", "선화", "배경"],
+    captions: null
+  },
+  en: {
+    cta: "Get it now", url9: "Link in bio", url16: "Link in description",
+    chip: "Middle-click", tag: "The <b>same-value palette</b><br>right by your pen", meta: "For Photoshop · Windows 10/11",
+    disclaimer: "Simulated screen · popup uses the real app UI and color math",
+    color: "Color", fg: "Foreground", layers: "Layers", layerNames: ["Color", "Lines", "Background"],
+    captions: [
+      { l1: "Back and forth", l2: "just to pick a color?", sub: "Canvas ↔ color panel, every time" },
+      { l1: "No more", l2: "paint, erase, repeat", sub: "Test strokes just to find a color that fits" },
+      { l1: "A palette", l2: "right by your pen", sub: "One click, right next to your cursor" },
+      { l1: "Same value,", l2: "only colors that fit", sub: "Lightness (L*) locked · only hue & chroma change" },
+      { l1: "In grayscale,", l2: "still the same value", sub: "All 3 petals at L* 68" },
+      { l1: "Your picks,", l2: "saved right here", sub: "Reuse any of them in one click" }
+    ]
+  }
+}[LANG];
+const W = AR === "9x16" ? 1080 : 1920;
+const H = AR === "9x16" ? 1920 : 1080;
+const DURATION = 15.0;
+const CTA_TEXT = params.get("cta") || I18N.cta;
+const URL_TEXT = params.get("url") || (AR === "9x16" ? I18N.url9 : I18N.url16);
+
+// ------------------------------------------------------------------
+// 레이아웃 (비율별)
+// ------------------------------------------------------------------
+const LAYOUT = AR === "9x16" ? {
+  app: { x: 60, y: 640 },
+  S: 1.5,                                  // 팝업 표시 배율
+  brand: { x: 0, y: 120, w: W, size: 34, align: "center" },
+  caption: { x: 60, y: 238, w: W - 120, size: 100, sub: 40, align: "center" },
+  disclaimer: { x: 60, y: 1556, w: 960, size: 22, align: "center" },
+  end: { field: 420, word: 130, tag: 64, meta: 34, cta: 46, url: 34 }
+} : {
+  app: { x: 880, y: 90 },
+  S: 1.5,
+  brand: { x: 100, y: 230, w: 700, size: 34, align: "left" },
+  caption: { x: 100, y: 330, w: 740, size: 94, sub: 36, align: "left" },
+  disclaimer: { x: 880, y: 1000, w: 960, size: 20, align: "center" },
+  end: { field: 300, word: 110, tag: 56, meta: 30, cta: 40, url: 30 }
+};
+const APP_W = 960, APP_H = 900;
+const P = (ax, ay) => ({ x: LAYOUT.app.x + ax, y: LAYOUT.app.y + ay });
+
+// ------------------------------------------------------------------
+// 색 (모든 꽃잎 색은 L* 68에서 colorMath.labToRgb로 계산 — 진짜 동명도)
+// ------------------------------------------------------------------
+const L_FIXED = 68;
+function labColor(hue, chroma) {
+  const ab = CM.polarToAB(chroma, hue);
+  const c = CM.labToRgb(L_FIXED, ab.a, ab.b) || CM.labToRgb(L_FIXED, ab.a, ab.b, true);
+  return { r: c.r, g: c.g, b: c.b, hue, chroma };
+}
+const hexRgb = (h) => { const v = parseInt(h.slice(1), 16); return { r: v >> 16, g: (v >> 8) & 255, b: v & 255 }; };
+const css = (c) => `rgb(${c.r},${c.g},${c.b})`;
+
+const COL = {
+  brown: hexRgb("#6b4a3a"),
+  skin: hexRgb("#f2c9a8"),
+  d1: hexRgb("#b03a2e"),     // 테스트 칠 1 (L*≈42, 명도 어긋남)
+  d2: hexRgb("#f6d2c4"),     // 테스트 칠 2 (L*≈87)
+  X: labColor(35, 28),       // Photoshop 패널에서 고른 기준색 (L* 68)
+  A: labColor(0, 42),        // 핑크
+  B: labColor(60, 44),       // 피치
+  C: labColor(300, 34),      // 라벤더
+  paper: hexRgb("#f6f2ea"),
+  line: hexRgb("#3a3238"),
+  center: hexRgb("#e8c25a")
+};
+const PICKS = [COL.A, COL.B, COL.C];
+
+// 흑백 확인 컷: 색을 L*만 남긴 회색으로 (정확히 Lab 기준)
+const grayCache = new Map();
+function grayOf(c) {
+  const k = c.r + "," + c.g + "," + c.b;
+  if (!grayCache.has(k)) {
+    const L = CM.rgbToLab(c.r, c.g, c.b).L;
+    const g = CM.labToRgb(L, 0, 0, true);
+    grayCache.set(k, { r: g.r, g: g.g, b: g.b });
+  }
+  return grayCache.get(k);
+}
+let GRAY = 0; // 0..1 (프레임마다 설정)
+function paint(c) {
+  if (GRAY <= 0) return css(c);
+  const g = grayOf(c);
+  const m = (a, b) => Math.round(a + (b - a) * GRAY);
+  return `rgb(${m(c.r, g.r)},${m(c.g, g.g)},${m(c.b, g.b)})`;
+}
+
+// ------------------------------------------------------------------
+// 유틸
+// ------------------------------------------------------------------
+const clamp01 = (v) => Math.max(0, Math.min(1, v));
+const prog = (t, a, b) => clamp01((t - a) / (b - a));
+const easeIO = (p) => p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+const easeOut = (p) => 1 - Math.pow(1 - p, 3);
+const lerp = (a, b, p) => a + (b - a) * p;
+const lerpPt = (a, b, p) => ({ x: lerp(a.x, b.x, p), y: lerp(a.y, b.y, p) });
+
+function pathLengths(pts) {
+  const acc = [0];
+  for (let i = 1; i < pts.length; i++) acc.push(acc[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y));
+  return acc;
+}
+function pointAlong(pts, acc, p) {
+  const total = acc[acc.length - 1];
+  const d = total * clamp01(p);
+  let i = 1;
+  while (i < acc.length - 1 && acc[i] < d) i++;
+  const seg = acc[i] - acc[i - 1] || 1;
+  return { pt: lerpPt(pts[i - 1], pts[i], (d - acc[i - 1]) / seg), idx: i };
+}
+
+// ------------------------------------------------------------------
+// 캔버스 위 그림 (앱 좌표 960x900 기준)
+// ------------------------------------------------------------------
+const PAPER = { x: 90, y: 80, w: 624, h: 790 };
+const FLOWER = { x: 402, y: 520 };
+const PETAL = { dist: 118, rx: 64, ry: 104 };
+const PETAL_ANG = [-90, -18, 54, 126, 198];
+function petalGeom(i) {
+  const th = (PETAL_ANG[i] * Math.PI) / 180;
+  return { cx: FLOWER.x + PETAL.dist * Math.cos(th), cy: FLOWER.y + PETAL.dist * Math.sin(th), th };
+}
+function petalStrokePath(i) {
+  const { cx, cy, th } = petalGeom(i);
+  const pts = [];
+  const step = 24;
+  let side = 1;
+  for (let u = -PETAL.ry + 4; u <= PETAL.ry + 8; u += step) {
+    const half = PETAL.rx * Math.sqrt(Math.max(0, 1 - (u / PETAL.ry) ** 2)) + 14;
+    const v = side * half; side = -side;
+    // 펜은 꽃잎 바깥쪽(끝)에서 안쪽으로 칠한다
+    const uu = -u;
+    pts.push({ x: cx + uu * Math.cos(th) - v * Math.sin(th), y: cy + uu * Math.sin(th) + v * Math.cos(th) });
+  }
+  return pts;
+}
+function scribble(cx, cy, w, h, n) {
+  const pts = [];
+  for (let k = 0; k <= n; k++) {
+    const x = cx - w / 2 + (w * k) / n;
+    const y = cy + (k % 2 ? h / 2 : -h / 2) * (0.75 + 0.25 * Math.sin(k * 1.7));
+    pts.push({ x, y });
+  }
+  return pts;
+}
+
+// 스트로크 정의: 시간, 경로(앱 좌표), 색, 굵기, 종류
+const DAB1 = { cx: 190, cy: 790 };
+const DAB2 = { cx: 610, cy: 790 };
+const STROKES = [];
+function addStroke(kind, t0, t1, pts, color, width, clipPetal) {
+  const s = { kind, t0, t1, pts, acc: pathLengths(pts), color, width, clipPetal };
+  STROKES.push(s);
+  return s;
+}
+
+// ------------------------------------------------------------------
+// 타임라인
+// ------------------------------------------------------------------
+const T = {
+  c1: [0.0, 2.6], c2: [2.6, 5.0], c3: [5.0, 6.6],
+  cycles: [6.6, 7.87, 9.14], cycleLen: 1.27,
+  gray: [10.41, 11.6], c5: [11.6, 13.4], end: [13.4, 15.0]
+};
+const CAPTIONS = [
+  { t0: 0.12, t1: 2.55, l1: "색 고르러", l2: "또 왔다갔다?", sub: "캔버스 ↔ 컬러 패널, 매번" },
+  { t0: 2.68, t1: 4.95, l1: "칠했다 지웠다", l2: "이제 그만", sub: "어울리는 색 찾는 테스트 칠" },
+  { t0: 5.05, t1: 6.55, l1: "펜 옆에", l2: "바로 팔레트", sub: "트리거 한 번, 커서 바로 옆에" },
+  { t0: 6.65, t1: 10.36, l1: "같은 명도,", l2: "어울리는 색만", sub: "명도(L*) 고정 · 색조/채도만 이동" },
+  { t0: 10.45, t1: 11.55, l1: "흑백으로 봐도", l2: "밝기 그대로", sub: "칠한 꽃잎 3장 모두 L* 68" },
+  { t0: 11.65, t1: 13.35, l1: "고른 색은", l2: "여기 모인다", sub: "히스토리 클릭 한 번으로 재적용" }
+];
+if (I18N.captions) CAPTIONS.forEach((c, i) => Object.assign(c, I18N.captions[i]));
+
+// Photoshop 쪽 전경색 변화 (패널 클릭 / 팝업 커밋)
+const FG_EVENTS = [
+  { t: 0, c: COL.brown },
+  { t: 0.62, c: COL.d1 },
+  { t: 2.07, c: COL.d2 },
+  { t: 4.64, c: COL.X }
+];
+// 팔레트 히스토리 (최신이 앞). Photoshop에서 바뀐 색도 히스토리에 들어간다(main.js applyIncomingColor).
+const HISTORY_EVENTS = [
+  { t: 0, list: [COL.brown, COL.skin] },
+  { t: 0.62, list: [COL.d1, COL.brown, COL.skin] },
+  { t: 2.07, list: [COL.d2, COL.d1, COL.brown, COL.skin] },
+  { t: 4.64, list: [COL.X, COL.d2, COL.d1, COL.brown, COL.skin] }
+];
+// 패널 클릭 위치(앱 좌표) — 클릭 강조/마커용
+const PANEL_CLICKS = [
+  { t: 0.62, x: 830, y: 170, what: "sv" },
+  { t: 2.07, x: 850, y: 289, what: "hue" },
+  { t: 4.64, x: 820, y: 196, what: "sv" }
+];
+
+// 팝업 열림 구간 [열림 시작, 닫힘 시작]
+const POPUP_OPEN = [];
+// 트리거 리플 시각
+const RIPPLES = [];
+// 효과음 큐 (render/render.js가 읽어서 render/sfx.js로 합성)
+const SFX = [];
+
+// 펜 키프레임: { t, p(page), ease } ; 스트로크는 조밀한 선형 샘플
+const KF = [];
+const DOWN = []; // 펜촉이 눌린 구간
+let ERASER = [[3.08, 4.3]];
+function kf(t, p, ease = true) { KF.push({ t, p, ease }); }
+function strokeKF(s) {
+  const N = 24;
+  for (let k = 0; k <= N; k++) {
+    const p = k / N;
+    const { pt } = pointAlong(s.pts, s.acc, p);
+    KF.push({ t: lerp(s.t0, s.t1, p), p: P(pt.x, pt.y), ease: false });
+  }
+  DOWN.push([s.t0, s.t1]);
+}
+
+// 팝업/필드 기하 (레이아웃 후 계산)
+let OPEN_PT = null, POPUP_POS = null, GEO = null;
+
+function buildTimeline() {
+  const S = LAYOUT.S;
+  OPEN_PT = P(150, 150);
+  POPUP_POS = { x: OPEN_PT.x + 16 * S, y: OPEN_PT.y + 16 * S }; // main.js: 커서 +16, +16
+
+  // ---- C1: 캔버스 ↔ 패널 왕복 ----
+  kf(0.0, P(400, 450));
+  kf(0.55, P(830, 170));
+  kf(0.72, P(830, 170));
+  const dab1 = addStroke("paint", 1.25, 1.55, scribble(DAB1.cx, DAB1.cy, 96, 56, 7), COL.d1, 26);
+  kf(1.25, P(dab1.pts[0].x, dab1.pts[0].y)); strokeKF(dab1);
+  kf(2.0, P(850, 289));
+  kf(2.14, P(850, 289));
+  // ---- C2: 칠했다 지웠다 ----
+  const dab2 = addStroke("paint", 2.6, 3.0, scribble(DAB2.cx, DAB2.cy, 100, 60, 8), COL.d2, 26);
+  kf(2.6, P(dab2.pts[0].x, dab2.pts[0].y)); strokeKF(dab2);
+  const er2 = addStroke("erase", 3.16, 3.6, scribble(DAB2.cx, DAB2.cy, 150, 96, 6), COL.paper, 64);
+  kf(3.16, P(er2.pts[0].x, er2.pts[0].y)); strokeKF(er2);
+  const er1 = addStroke("erase", 3.86, 4.28, scribble(DAB1.cx, DAB1.cy, 150, 96, 6), COL.paper, 64);
+  kf(3.86, P(er1.pts[0].x, er1.pts[0].y)); strokeKF(er1);
+  kf(4.58, P(820, 196));
+  kf(4.68, P(820, 196));
+  kf(5.02, OPEN_PT);
+  SFX.push({ t: 0.0, type: "whoosh" }, { t: 0.62, type: "click" }, { t: 0.76, type: "whoosh" }, { t: 1.25, type: "scribble", dur: 0.3 },
+    { t: 1.58, type: "whoosh" }, { t: 2.07, type: "click" }, { t: 2.18, type: "whoosh" }, { t: 2.6, type: "scribble", dur: 0.4 },
+    { t: 3.16, type: "erase", dur: 0.44 }, { t: 3.86, type: "erase", dur: 0.42 }, { t: 4.64, type: "click" }, { t: 4.7, type: "whoosh" });
+
+  // ---- C3: 트리거 → 팝업 ----
+  RIPPLES.push({ t: 5.1, chip: true });
+  SFX.push({ t: 5.1, type: "click" }, { t: 5.16, type: "pop" });
+  kf(5.9, { x: OPEN_PT.x + 6, y: OPEN_PT.y - 4 });
+  kf(6.62, OPEN_PT);
+
+  // ---- C4: 3회 (고르기 → 칠하기) ----
+  let prevPick = COL.X;
+  T.cycles.forEach((s, i) => {
+    const pick = PICKS[i];
+    const openAt = i === 0 ? 5.16 : s;
+    if (i > 0) { RIPPLES.push({ t: s - 0.02 }); SFX.push({ t: s - 0.02, type: "pop" }); }
+    POPUP_OPEN.push({ open: openAt, close: s + 0.6, base: prevPick, drag: { t0: s + 0.25, t1: s + 0.55, from: prevPick, to: pick } });
+    const from = fieldPage(prevPick.hue, prevPick.chroma);
+    const to = fieldPage(pick.hue, pick.chroma);
+    kf(s + 0.06, OPEN_PT);
+    kf(s + 0.24, from);
+    // 드래그 (필드 위)
+    for (let k = 1; k <= 12; k++) {
+      const p = easeIO(k / 12);
+      const ab0 = CM.polarToAB(prevPick.chroma, prevPick.hue), ab1 = CM.polarToAB(pick.chroma, pick.hue);
+      KF.push({ t: lerp(s + 0.25, s + 0.55, k / 12), p: fieldPageAB(lerp(ab0.a, ab1.a, p), lerp(ab0.b, ab1.b, p)), ease: false });
+    }
+    DOWN.push([s + 0.25, s + 0.55]);
+    kf(s + 0.6, to);
+    RIPPLES.push({ t: s + 0.6 });
+    FG_EVENTS.push({ t: s + 0.56, c: pick });
+    HISTORY_EVENTS.push({ t: s + 0.7, list: [pick, ...HISTORY_EVENTS[HISTORY_EVENTS.length - 1].list].slice(0, 8) });
+    SFX.push({ t: s + 0.08, type: "whoosh", vol: 0.5 }, { t: s + 0.56, type: "tick" }, { t: s + 0.6, type: "click", vol: 0.6 });
+    const st = addStroke("paint", s + 0.75, s + 1.12, petalStrokePath(i === 2 ? 4 : i), pick, 44, i === 2 ? 4 : i);
+    kf(s + 0.75, P(st.pts[0].x, st.pts[0].y));
+    strokeKF(st);
+    SFX.push({ t: s + 0.75, type: "scribble", dur: 0.37 });
+    kf(s + 1.27, OPEN_PT);
+    prevPick = pick;
+  });
+
+  // ---- 흑백 확인 ----
+  kf(11.55, OPEN_PT);
+  SFX.push({ t: 10.45, type: "swell" });
+
+  // ---- C5: 히스토리 ----
+  RIPPLES.push({ t: 11.6 });
+  SFX.push({ t: 11.6, type: "pop" });
+  const histAt12 = HISTORY_EVENTS[HISTORY_EVENTS.length - 1].list; // [C, B, A, X, ...]
+  const idxA = histAt12.indexOf(COL.A);
+  POPUP_OPEN.push({ open: 11.6, close: 12.5, base: COL.C, tapHist: { t: 12.32, idx: idxA, color: COL.A } });
+  kf(11.8, OPEN_PT);
+  const swPt = historyPage(idxA);
+  kf(12.2, swPt);
+  kf(12.36, swPt);
+  DOWN.push([12.3, 12.36]);
+  FG_EVENTS.push({ t: 12.33, c: COL.A });
+  SFX.push({ t: 12.32, type: "tick" }, { t: 12.5, type: "click", vol: 0.6 });
+  RIPPLES.push({ t: 12.5 });
+  const st4 = addStroke("paint", 12.68, 13.18, petalStrokePath(2), COL.A, 44, 2);
+  kf(12.68, P(st4.pts[0].x, st4.pts[0].y));
+  strokeKF(st4);
+  SFX.push({ t: 12.68, type: "scribble", dur: 0.5 });
+  kf(13.4, P(st4.pts[st4.pts.length - 1].x + 30, st4.pts[st4.pts.length - 1].y + 20));
+  // ---- 엔드카드 ----
+  SFX.push({ t: 13.5, type: "chime" });
+
+  KF.sort((a, b) => a.t - b.t);
+  FG_EVENTS.sort((a, b) => a.t - b.t);
+  HISTORY_EVENTS.sort((a, b) => a.t - b.t);
+  window.SFX_CUES = SFX.slice().sort((a, b) => a.t - b.t);
+}
+
+function lastBefore(list, t) {
+  let cur = list[0];
+  for (const e of list) { if (e.t <= t) cur = e; else break; }
+  return cur;
+}
+
+function penAt(t) {
+  if (t <= KF[0].t) return KF[0].p;
+  for (let i = 1; i < KF.length; i++) {
+    if (t <= KF[i].t) {
+      const a = KF[i - 1], b = KF[i];
+      const span = b.t - a.t;
+      const p = span > 0 ? (t - a.t) / span : 1;
+      return lerpPt(a.p, b.p, b.ease ? easeIO(p) : p);
+    }
+  }
+  return KF[KF.length - 1].p;
+}
+const inAny = (iv, t) => iv.some(([a, b]) => t >= a && t <= b);
+
+// ------------------------------------------------------------------
+// 팝업 필드 (overlay.js renderField 와 동일한 수식, lab/일부분 보기 모드)
+// ------------------------------------------------------------------
+const FIELD_RANGE = 130;
+const el = {};
+function fieldGeomCss() {
+  // 팝업 내부(배율 적용 전) 필드 위치/크기
+  const wrap = el.fieldWrap;
+  return { x: wrap.offsetLeft, y: wrap.offsetTop, w: wrap.clientWidth, h: wrap.clientHeight };
+}
+function fieldPageAB(a, b) {
+  const S = LAYOUT.S, g = GEO.field;
+  const cx = g.w / 2, cy = g.h / 2;
+  const scale = FIELD_RANGE / Math.min(cx, cy);
+  return { x: POPUP_POS.x + (g.x + cx + a / scale) * S, y: POPUP_POS.y + (g.y + cy + b / scale) * S };
+}
+function fieldPage(hue, chroma) { const ab = CM.polarToAB(chroma, hue); return fieldPageAB(ab.a, ab.b); }
+function historyPage(i) {
+  const S = LAYOUT.S, g = GEO.hist;
+  return { x: POPUP_POS.x + (g.x + 9 + i * 23) * S, y: POPUP_POS.y + (g.y + g.h / 2) * S };
+}
+
+function renderFieldOnce() {
+  const S = LAYOUT.S;
+  const g = GEO.field;
+  const cv = el.fieldCanvas;
+  cv.width = Math.round(g.w * S);
+  cv.height = Math.round(g.h * S);
+  const ctx = cv.getContext("2d");
+  const w = cv.width, h = cv.height, cx = w / 2, cy = h / 2;
+  const scale = FIELD_RANGE / Math.min(cx, cy);
+  const img = ctx.createImageData(w, h);
+  for (let py = 0; py < h; py++) {
+    for (let px = 0; px < w; px++) {
+      const rgb = CM.labFieldPixel(L_FIXED, (px - cx) * scale, (py - cy) * scale, false);
+      const idx = (py * w + px) * 4;
+      if (rgb) { img.data[idx] = rgb.r; img.data[idx + 1] = rgb.g; img.data[idx + 2] = rgb.b; img.data[idx + 3] = 255; }
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+function renderEndField() {
+  const size = LAYOUT.end.field;
+  const cv = el.endField;
+  cv.width = size; cv.height = Math.round(size * 0.82);
+  cv.style.width = size + "px"; cv.style.height = cv.height + "px";
+  const ctx = cv.getContext("2d");
+  let maxC = 0;
+  for (let hh = 0; hh < 360; hh += 5) maxC = Math.max(maxC, CM.findMaxChromaForHue(L_FIXED, hh));
+  const w = cv.width, h = cv.height, cx = w / 2, cy = h / 2;
+  const scale = (maxC * 1.12) / Math.min(cx, cy);
+  const img = ctx.createImageData(w, h);
+  for (let py = 0; py < h; py++) for (let px = 0; px < w; px++) {
+    const rgb = CM.labFieldPixel(L_FIXED, (px - cx) * scale, (py - cy) * scale, false);
+    const idx = (py * w + px) * 4;
+    if (rgb) { img.data[idx] = rgb.r; img.data[idx + 1] = rgb.g; img.data[idx + 2] = rgb.b; img.data[idx + 3] = 255; }
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+let lastHistKey = "";
+function renderHistoryRow(list, hotIdx) {
+  const key = list.map(css).join("|") + "#" + hotIdx;
+  if (key === lastHistKey) return;
+  lastHistKey = key;
+  el.historyRow.innerHTML = "";
+  list.forEach((c, i) => {
+    const d = document.createElement("div");
+    d.className = "history-swatch" + (i === hotIdx ? " hot" : "");
+    d.style.background = css(c);
+    el.historyRow.appendChild(d);
+  });
+}
+
+const lrCache = new Map();
+function lightnessRange(hue, chroma) {
+  const k = hue.toFixed(2) + "/" + chroma.toFixed(2);
+  if (!lrCache.has(k)) lrCache.set(k, CM.findLightnessRangeForChroma(hue, chroma));
+  return lrCache.get(k);
+}
+
+function updatePopup(t) {
+  const S = LAYOUT.S;
+  let seg = null;
+  for (const o of POPUP_OPEN) if (t >= o.open - 0.001 && t <= o.close + 0.12) { seg = o; break; }
+  if (!seg) { el.popup.style.display = "none"; return null; }
+  const oIn = easeOut(prog(t, seg.open, seg.open + 0.16));
+  const oOut = 1 - prog(t, seg.close, seg.close + 0.1);
+  const o = Math.min(oIn, oOut);
+  el.popup.style.display = "flex";
+  el.popup.style.opacity = o.toFixed(3);
+  const sc = S * (0.9 + 0.1 * o);
+  el.popup.style.transform = `translate(${POPUP_POS.x}px, ${POPUP_POS.y}px) scale(${sc})`;
+
+  // 현재 hue/chroma
+  let hue = seg.base.hue, chroma = seg.base.chroma, cur = seg.base;
+  if (seg.drag && t >= seg.drag.t0) {
+    const p = easeIO(prog(t, seg.drag.t0, seg.drag.t1));
+    const ab0 = CM.polarToAB(seg.drag.from.chroma, seg.drag.from.hue);
+    const ab1 = CM.polarToAB(seg.drag.to.chroma, seg.drag.to.hue);
+    const pol = CM.abToPolar(lerp(ab0.a, ab1.a, p), lerp(ab0.b, ab1.b, p));
+    hue = pol.hueDeg;
+    chroma = Math.min(pol.chroma, CM.findMaxChromaForHue(L_FIXED, hue)); // clampChromaToGamut
+    const ab = CM.polarToAB(chroma, hue);
+    cur = CM.labToRgb(L_FIXED, ab.a, ab.b) || CM.labToRgb(L_FIXED, ab.a, ab.b, true);
+  }
+  // 필드 커서 (overlay.js positionCursor)
+  const g = GEO.field;
+  const cx = g.w / 2, cy = g.h / 2, scale = FIELD_RANGE / Math.min(cx, cy);
+  const ab = CM.polarToAB(chroma, hue);
+  el.fieldCursor.style.left = (cx + ab.a / scale) + "px";
+  el.fieldCursor.style.top = (cy + ab.b / scale) + "px";
+  // 명도 바 (overlay.js renderLightnessTrackGradient / renderLightnessHandle)
+  const q = (v) => Math.round(v * 4) / 4;
+  const { Lmin, Lmax } = lightnessRange(q(hue), q(chroma));
+  el.lTrack.style.left = Lmin + "%";
+  el.lTrack.style.width = Math.max(0, Lmax - Lmin) + "%";
+  const stops = [];
+  for (let i = 0; i <= 12; i++) {
+    const L = Lmin + ((Lmax - Lmin) * i) / 12;
+    const rgb = CM.labFieldPixel(L, ab.a, ab.b, true) || { r: 128, g: 128, b: 128 };
+    stops.push(`rgb(${rgb.r},${rgb.g},${rgb.b}) ${((i / 12) * 100).toFixed(1)}%`);
+  }
+  el.lTrack.style.background = `linear-gradient(to right, ${stops.join(", ")})`;
+  const pct = Lmax > Lmin ? ((L_FIXED - Lmin) / (Lmax - Lmin)) * 100 : 0;
+  el.lHandle.style.left = Math.min(100, Math.max(0, pct)) + "%";
+  // 스와치
+  let curColor = cur;
+  if (seg.tapHist && t >= seg.tapHist.t) curColor = seg.tapHist.color;
+  el.curSwatch.style.background = css(curColor);
+  const prevFg = lastBeforeIdx(FG_EVENTS, seg.open);
+  el.prevSwatch.style.background = css(prevFg);
+  // 히스토리
+  const hist = lastBefore(HISTORY_EVENTS, t).list;
+  const hot = seg.tapHist && t >= seg.tapHist.t - 0.4 ? seg.tapHist.idx : -1;
+  renderHistoryRow(hist, hot);
+  // 히스토리 강조 링 (C5)
+  if (seg.tapHist) {
+    const a = prog(t, 11.78, 11.95) * (1 - prog(t, 12.4, 12.5));
+    const pulse = 1 + 0.04 * Math.sin((t - 11.78) * 14);
+    const hg = GEO.hist;
+    const n = hist.length;
+    const wPx = n * 18 + (n - 1) * 5 + 8;
+    el.histRing.style.display = "block";
+    el.histRing.style.opacity = a.toFixed(3);
+    el.histRing.style.left = (hg.x - 4) + "px";
+    el.histRing.style.top = (hg.y + hg.h / 2 - 13) + "px";
+    el.histRing.style.width = wPx + "px";
+    el.histRing.style.height = "26px";
+    el.histRing.style.transform = `scale(${pulse})`;
+  } else el.histRing.style.display = "none";
+  return o;
+}
+function lastBeforeIdx(list, t) {
+  // 팝업을 연 시점 직전의 전경색 = main.js가 보내는 prevRgb 에 해당
+  let prev = list[0].c, cur = list[0].c;
+  for (const e of list) { if (e.t < t) { prev = cur; cur = e.c; } else break; }
+  return prev;
+}
+
+// ------------------------------------------------------------------
+// 드로잉 앱 목업 (연출용, 특정 제품 UI 아님)
+// ------------------------------------------------------------------
+function rr(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+function drawStrokePartial(ctx, s, t) {
+  const p = prog(t, s.t0, s.t1);
+  if (p <= 0) return;
+  const { pt, idx } = pointAlong(s.pts, s.acc, p);
+  ctx.save();
+  if (s.clipPetal !== undefined) {
+    const g = petalGeom(s.clipPetal);
+    ctx.beginPath(); ctx.ellipse(g.cx, g.cy, PETAL.ry, PETAL.rx, g.th, 0, Math.PI * 2); ctx.clip();
+  }
+  ctx.strokeStyle = s.kind === "erase" ? paint(COL.paper) : paint(s.color);
+  ctx.lineWidth = s.width; ctx.lineCap = "round"; ctx.lineJoin = "round";
+  ctx.beginPath(); ctx.moveTo(s.pts[0].x, s.pts[0].y);
+  for (let i = 1; i < idx; i++) ctx.lineTo(s.pts[i].x, s.pts[i].y);
+  ctx.lineTo(pt.x, pt.y);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawApp(t) {
+  const ctx = el.app.getContext("2d");
+  ctx.clearRect(0, 0, APP_W, APP_H);
+  ctx.save();
+  rr(ctx, 0, 0, APP_W, APP_H, 18); ctx.clip();
+  // 창 배경
+  ctx.fillStyle = "#2f2d34"; ctx.fillRect(0, 0, APP_W, APP_H);
+  // 타이틀바
+  ctx.fillStyle = "#232127"; ctx.fillRect(0, 0, APP_W, 44);
+  ctx.fillStyle = "#3a3740"; rr(ctx, 74, 8, 190, 36, 8); ctx.fill(); ctx.fillRect(74, 30, 190, 14);
+  ctx.fillStyle = "#cfc9c0"; ctx.font = "500 16px AdKR, 'Malgun Gothic'"; ctx.textBaseline = "middle";
+  ctx.fillText("illust_01 @ 100%", 92, 27);
+  ctx.fillStyle = "#77727c"; ctx.font = "400 18px AdKR, 'Malgun Gothic'";
+  ctx.fillText("—    ☐    ✕", 856, 23);
+  // 툴바
+  ctx.fillStyle = "#26242a"; ctx.fillRect(0, 44, 64, APP_H - 44);
+  const eraserOn = inAny(ERASER, t);
+  for (let i = 0; i < 9; i++) {
+    const y = 62 + i * 50;
+    const active = (i === 1 && !eraserOn) || (i === 2 && eraserOn);
+    ctx.fillStyle = active ? "#55505d" : "#2f2d34"; rr(ctx, 12, y, 40, 40, 8); ctx.fill();
+    ctx.strokeStyle = active ? "#f2ede4" : "#77727c"; ctx.lineWidth = 2.5; ctx.lineCap = "round";
+    ctx.beginPath();
+    if (i === 1) { ctx.moveTo(22, y + 30); ctx.lineTo(40, y + 12); ctx.moveTo(20, y + 32); ctx.arc(24, y + 28, 3, 0, Math.PI * 2); }
+    else if (i === 2) { ctx.save(); ctx.translate(32, y + 20); ctx.rotate(-0.7); ctx.strokeRect(-11, -7, 22, 14); ctx.moveTo(0, -7); ctx.lineTo(0, 7); ctx.restore(); }
+    else if (i === 0) { ctx.moveTo(24, y + 12); ctx.lineTo(24, y + 30); ctx.lineTo(29, y + 25); ctx.lineTo(35, y + 32); }
+    else if (i === 3) { ctx.rect(21, y + 11, 18, 18); }
+    else if (i === 4) { ctx.arc(32, y + 20, 9, 0, Math.PI * 2); }
+    else if (i === 5) { ctx.moveTo(22, y + 28); ctx.lineTo(32, y + 12); ctx.lineTo(42, y + 28); }
+    else if (i === 6) { ctx.moveTo(21, y + 20); ctx.lineTo(43, y + 20); ctx.moveTo(32, y + 9); ctx.lineTo(32, y + 31); }
+    else if (i === 7) { ctx.moveTo(22, y + 14); ctx.lineTo(42, y + 14); ctx.moveTo(32, y + 14); ctx.lineTo(32, y + 30); }
+    else { ctx.arc(30, y + 18, 7, 0, Math.PI * 2); ctx.moveTo(35, y + 23); ctx.lineTo(41, y + 29); }
+    ctx.stroke();
+  }
+  // 캔버스 영역
+  ctx.fillStyle = "#3b3940"; ctx.fillRect(64, 44, 676, APP_H - 44);
+  ctx.save(); ctx.shadowColor = "rgba(0,0,0,0.45)"; ctx.shadowBlur = 24; ctx.shadowOffsetY = 6;
+  ctx.fillStyle = paint(COL.paper); ctx.fillRect(PAPER.x, PAPER.y, PAPER.w, PAPER.h); ctx.restore();
+  // 그림
+  ctx.save();
+  ctx.beginPath(); ctx.rect(PAPER.x, PAPER.y, PAPER.w, PAPER.h); ctx.clip();
+  // 꽃 가운데 (미리 칠해둔 색)
+  ctx.fillStyle = paint(COL.center); ctx.beginPath(); ctx.arc(FLOWER.x, FLOWER.y, 46, 0, Math.PI * 2); ctx.fill();
+  for (const s of STROKES) drawStrokePartial(ctx, s, t);
+  // 가운데 원은 꽃잎 위로
+  ctx.fillStyle = paint(COL.center); ctx.beginPath(); ctx.arc(FLOWER.x, FLOWER.y, 46, 0, Math.PI * 2); ctx.fill();
+  // 선화
+  ctx.strokeStyle = paint(COL.line); ctx.lineWidth = 5; ctx.lineJoin = "round";
+  for (let i = 0; i < 5; i++) {
+    const g = petalGeom(i);
+    ctx.beginPath(); ctx.ellipse(g.cx, g.cy, PETAL.ry, PETAL.rx, g.th, 0, Math.PI * 2); ctx.stroke();
+  }
+  ctx.beginPath(); ctx.arc(FLOWER.x, FLOWER.y, 46, 0, Math.PI * 2); ctx.fillStyle = paint(COL.center); ctx.fill(); ctx.stroke();
+  // 수술 점
+  ctx.fillStyle = paint(COL.line);
+  for (let k = 0; k < 7; k++) { const a = k * 0.9; ctx.beginPath(); ctx.arc(FLOWER.x + 20 * Math.cos(a), FLOWER.y + 20 * Math.sin(a), 3.5, 0, Math.PI * 2); ctx.fill(); }
+  ctx.restore();
+
+  // 오른쪽 패널: 색상
+  const px = 740;
+  ctx.fillStyle = "#2f2d34"; ctx.fillRect(px, 44, 220, APP_H - 44);
+  ctx.fillStyle = "#24222a"; ctx.fillRect(px, 44, 220, 30);
+  ctx.fillStyle = "#cfc9c0"; ctx.font = "600 15px AdKR, 'Malgun Gothic'"; ctx.fillText(I18N.color, px + 16, 60);
+  // SV 사각형
+  const sv = { x: 758, y: 86, w: 184, h: 184 };
+  ctx.fillStyle = "hsl(8,100%,50%)"; ctx.fillRect(sv.x, sv.y, sv.w, sv.h);
+  let gr = ctx.createLinearGradient(sv.x, 0, sv.x + sv.w, 0); gr.addColorStop(0, "#fff"); gr.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = gr; ctx.fillRect(sv.x, sv.y, sv.w, sv.h);
+  gr = ctx.createLinearGradient(0, sv.y, 0, sv.y + sv.h); gr.addColorStop(0, "rgba(0,0,0,0)"); gr.addColorStop(1, "#000");
+  ctx.fillStyle = gr; ctx.fillRect(sv.x, sv.y, sv.w, sv.h);
+  // 색상 바
+  gr = ctx.createLinearGradient(758, 0, 942, 0);
+  ["#f00", "#ff0", "#0f0", "#0ff", "#00f", "#f0f", "#f00"].forEach((c, i) => gr.addColorStop(i / 6, c));
+  ctx.fillStyle = gr; ctx.fillRect(758, 281, 184, 16);
+  // 클릭 마커 + 강조
+  const lastClick = PANEL_CLICKS.filter((c) => c.t <= t && c.what === "sv").pop();
+  if (lastClick) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(lastClick.x, lastClick.y, 7, 0, Math.PI * 2); ctx.stroke(); }
+  for (const c of PANEL_CLICKS) {
+    const a = 1 - prog(t, c.t, c.t + 0.45);
+    if (t >= c.t && a > 0) {
+      ctx.strokeStyle = `rgba(232,163,61,${a})`; ctx.lineWidth = 4;
+      if (c.what === "sv") ctx.strokeRect(sv.x - 4, sv.y - 4, sv.w + 8, sv.h + 8); else ctx.strokeRect(754, 277, 192, 24);
+    }
+  }
+  // 전경/배경색
+  ctx.fillStyle = "#fff"; ctx.fillRect(788, 330, 36, 36); ctx.strokeStyle = "#111"; ctx.lineWidth = 1; ctx.strokeRect(788, 330, 36, 36);
+  const fg = lastBefore(FG_EVENTS, t).c;
+  ctx.fillStyle = css(fg); ctx.fillRect(764, 310, 42, 42); ctx.strokeStyle = "#eee"; ctx.lineWidth = 2; ctx.strokeRect(764, 310, 42, 42);
+  ctx.fillStyle = "#a79f97"; ctx.font = "500 14px AdKR, 'Malgun Gothic'"; ctx.fillText(I18N.fg, 840, 332);
+  // 레이어 패널 (장식)
+  ctx.fillStyle = "#24222a"; ctx.fillRect(px, 400, 220, 30);
+  ctx.fillStyle = "#cfc9c0"; ctx.font = "600 15px AdKR, 'Malgun Gothic'"; ctx.fillText(I18N.layers, px + 16, 416);
+  I18N.layerNames.forEach((name, i) => {
+    const y = 442 + i * 52;
+    ctx.fillStyle = i === 0 ? "#3d3a44" : "#34323a"; rr(ctx, 752, y, 196, 44, 6); ctx.fill();
+    ctx.fillStyle = "#f6f2ea"; ctx.fillRect(760, y + 6, 32, 32);
+    ctx.fillStyle = "#cfc9c0"; ctx.font = "500 15px AdKR, 'Malgun Gothic'"; ctx.fillText(name, 804, y + 23);
+  });
+  ctx.restore();
+  // 테두리
+  ctx.strokeStyle = "rgba(242,237,228,0.12)"; ctx.lineWidth = 2; rr(ctx, 1, 1, APP_W - 2, APP_H - 2, 18); ctx.stroke();
+}
+
+// ------------------------------------------------------------------
+// 효과 레이어 (궤적, 리플)
+// ------------------------------------------------------------------
+function drawFx(t) {
+  const ctx = el.fx.getContext("2d");
+  ctx.clearRect(0, 0, W, H);
+  // C1~C2: 펜이 지나간 궤적 (왔다갔다를 시각화)
+  const trailA = 1 - prog(t, 4.75, 5.1);
+  if (t > 0 && trailA > 0) {
+    ctx.save();
+    ctx.strokeStyle = `rgba(232,163,61,${0.85 * trailA})`; ctx.lineWidth = 5; ctx.setLineDash([14, 12]); ctx.lineCap = "round";
+    ctx.beginPath();
+    const end = Math.min(t, 5.02);
+    let first = true;
+    for (let tt = 0; tt <= end + 1e-6; tt += 1 / 60) {
+      if (inAny(DOWN, tt)) { first = true; continue; }
+      const p = penAt(tt);
+      if (first) { ctx.moveTo(p.x, p.y); first = false; } else ctx.lineTo(p.x, p.y);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+  // 리플
+  for (const r of RIPPLES) {
+    const p = prog(t, r.t, r.t + 0.22);
+    if (t < r.t || p >= 1) continue;
+    const at = penAt(r.t);
+    ctx.strokeStyle = `rgba(232,163,61,${1 - p})`; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.arc(at.x, at.y, 10 + 40 * easeOut(p), 0, Math.PI * 2); ctx.stroke();
+  }
+}
+
+// ------------------------------------------------------------------
+// 프레임 렌더 (결정적)
+// ------------------------------------------------------------------
+function setCaption(t) {
+  let cap = null;
+  for (const c of CAPTIONS) if (t >= c.t0 && t <= c.t1) cap = c;
+  const box = el.caption;
+  if (!cap) { box.style.opacity = 0; return; }
+  const a = Math.min(easeOut(prog(t, cap.t0, cap.t0 + 0.16)), 1 - prog(t, cap.t1 - 0.1, cap.t1));
+  box.style.opacity = a.toFixed(3);
+  box.style.transform = `translateY(${(1 - a) * 18}px)`;
+  if (box.dataset.k !== cap.l1) {
+    box.dataset.k = cap.l1;
+    box.querySelector(".l1").textContent = cap.l1;
+    box.querySelector(".l2").textContent = cap.l2;
+    box.querySelector(".sub").textContent = cap.sub || "";
+    fitCaption();
+  }
+}
+
+// 영문 등 긴 자막이 캡션 폭(LAYOUT.caption.w)을 넘으면 글자 크기를 줄인다.
+function fitCaption() {
+  const c = LAYOUT.caption, box = el.caption;
+  for (const [cls, base] of [[".l1", c.size], [".l2", c.size], [".sub", c.sub]]) {
+    const n = box.querySelector(cls);
+    let size = base;
+    n.style.fontSize = size + "px";
+    while (n.scrollWidth > c.w && size > 18) { size -= 2; n.style.fontSize = size + "px"; }
+  }
+  // l1/l2는 같은 크기로 맞춘다(작은 쪽 기준)
+  const a = parseFloat(box.querySelector(".l1").style.fontSize), b = parseFloat(box.querySelector(".l2").style.fontSize);
+  const m = Math.min(a, b) + "px";
+  box.querySelector(".l1").style.fontSize = m; box.querySelector(".l2").style.fontSize = m;
+}
+
+function renderAt(t) {
+  t = Math.max(0, Math.min(DURATION, t));
+  GRAY = Math.min(easeIO(prog(t, T.gray[0] + 0.04, T.gray[0] + 0.34)), 1 - easeIO(prog(t, T.gray[1] - 0.3, T.gray[1] - 0.04)));
+  if (t < T.gray[0] || t > T.gray[1]) GRAY = 0;
+  drawApp(t);
+  drawFx(t);
+  setCaption(t);
+  const popupO = updatePopup(t);
+
+  // 펜
+  const pen = penAt(t);
+  const down = inAny(DOWN, t);
+  const tip = { x: pen.x + (down ? 2 : 0), y: pen.y + (down ? 3 : 0) };
+  el.penBody.setAttribute("transform", `translate(${tip.x},${tip.y})`);
+  // 브러시 커서: 캔버스(종이) 위 + 팝업이 덮지 않을 때
+  const pa = { x: pen.x - LAYOUT.app.x, y: pen.y - LAYOUT.app.y };
+  const onPaper = pa.x > PAPER.x && pa.x < PAPER.x + PAPER.w && pa.y > PAPER.y && pa.y < PAPER.y + PAPER.h && !(popupO > 0.2);
+  const eraser = inAny(ERASER, t);
+  el.brushRing.style.display = onPaper && t < T.end[0] ? "block" : "none";
+  const r = eraser ? 32 : 21;
+  el.brushCircle.setAttribute("r", r); el.brushCircle2.setAttribute("r", r + 1.5);
+  el.brushCircle.setAttribute("stroke-dasharray", eraser ? "6 5" : "");
+  el.brushRing.setAttribute("transform", `translate(${pen.x},${pen.y})`);
+  el.pen.style.opacity = (1 - prog(t, T.end[0], T.end[0] + 0.2)).toFixed(3);
+
+  // "중클릭" 칩
+  const chip = RIPPLES.find((r) => r.chip);
+  const ca = chip ? Math.min(prog(t, chip.t, chip.t + 0.1), 1 - prog(t, chip.t + 1.0, chip.t + 1.2)) : 0;
+  el.chip.style.opacity = t >= chip.t ? ca.toFixed(3) : 0;
+  const cp = penAt(chip.t);
+  el.chip.style.transform = `translate(${Math.max(24, cp.x - el.chip.offsetWidth - 14)}px, ${cp.y + 14}px)`;
+
+  // 브랜드/면책 표시
+  el.brand.style.opacity = (1 - prog(t, T.end[0], T.end[0] + 0.2)).toFixed(3);
+
+  // 엔드카드
+  const e = prog(t, T.end[0], T.end[0] + 0.35);
+  el.end.style.opacity = easeOut(e).toFixed(3);
+  el.end.style.display = e > 0 ? "flex" : "none";
+  const items = el.end.querySelectorAll(".word, .tag, .meta, .cta, .url, canvas");
+  items.forEach((n, i) => {
+    const pi = easeOut(prog(t, T.end[0] + 0.12 + i * 0.07, T.end[0] + 0.5 + i * 0.07));
+    n.style.opacity = pi.toFixed(3);
+    n.style.transform = `translateY(${(1 - pi) * 24}px)`;
+  });
+
+  el.hud.textContent = RENDER ? "" : `t=${t.toFixed(2)}s  ${AR}`;
+}
+
+// ------------------------------------------------------------------
+// 초기화
+// ------------------------------------------------------------------
+function applyLayout() {
+  const st = document.getElementById("stage");
+  st.style.width = W + "px"; st.style.height = H + "px";
+  if (!RENDER) {
+    const k = Math.min(window.innerWidth / W, window.innerHeight / H);
+    st.style.transform = `scale(${k})`;
+  }
+  const b = LAYOUT.brand;
+  Object.assign(el.brand.style, { left: b.x + "px", top: b.y + "px", width: b.w + "px", fontSize: b.size + "px", textAlign: b.align });
+  const c = LAYOUT.caption;
+  Object.assign(el.caption.style, { left: c.x + "px", top: c.y + "px", width: c.w + "px", textAlign: c.align });
+  el.caption.querySelector(".l1").style.fontSize = c.size + "px";
+  el.caption.querySelector(".l2").style.fontSize = c.size + "px";
+  el.caption.querySelector(".sub").style.fontSize = c.sub + "px";
+  el.app.style.left = LAYOUT.app.x + "px"; el.app.style.top = LAYOUT.app.y + "px";
+  const d = LAYOUT.disclaimer;
+  Object.assign(el.disclaimer.style, { left: d.x + "px", top: d.y + "px", width: d.w + "px", fontSize: d.size + "px", textAlign: d.align });
+  el.fx.width = W; el.fx.height = H;
+  el.pen.setAttribute("width", W); el.pen.setAttribute("height", H);
+  el.chip.style.fontSize = "30px"; el.chip.style.padding = "8px 20px";
+  const e = LAYOUT.end;
+  el.end.querySelector(".word").style.fontSize = e.word + "px";
+  el.end.querySelector(".word").style.marginTop = (AR === "9x16" ? 88 : 48) + "px";
+  el.end.querySelector(".tag").style.fontSize = e.tag + "px";
+  el.end.querySelector(".tag").style.marginTop = (AR === "9x16" ? 34 : 22) + "px";
+  el.end.querySelector(".meta").style.fontSize = e.meta + "px";
+  el.end.querySelector(".meta").style.marginTop = "16px";
+  const cta = el.end.querySelector(".cta");
+  cta.textContent = CTA_TEXT; cta.style.fontSize = e.cta + "px"; cta.style.padding = AR === "9x16" ? "26px 64px" : "20px 52px";
+  cta.style.marginTop = (AR === "9x16" ? 64 : 36) + "px";
+  const url = el.end.querySelector(".url");
+  url.textContent = URL_TEXT; url.style.fontSize = e.url + "px"; url.style.marginTop = "22px";
+  el.chip.textContent = I18N.chip;
+  el.end.querySelector(".tag").innerHTML = I18N.tag;
+  el.end.querySelector(".meta").textContent = I18N.meta;
+  el.disclaimer.textContent = I18N.disclaimer;
+  document.documentElement.lang = LANG;
+}
+
+async function init() {
+  ["popup", "fieldWrap", "fieldCanvas", "fieldCursor", "lTrack", "lHandle", "curSwatch", "prevSwatch", "historyRow", "bottomRow", "histRing",
+   "pen", "penBody", "brushRing", "brushCircle", "brushCircle2", "chip", "end", "endField", "caption", "brand", "disclaimer", "fx", "hud"]
+    .forEach((id) => (el[id] = document.getElementById(id)));
+  el.app = document.getElementById("appCanvas");
+  applyLayout();
+  try { await document.fonts.load("800 40px AdKR"); await document.fonts.load("900 40px AdKR"); await document.fonts.load("700 40px AdSerif"); } catch (e) {}
+  await document.fonts.ready;
+  // 팝업 기하 측정 (배율 적용 전, 레이아웃 기준)
+  el.popup.style.display = "flex"; el.popup.style.transform = "none";
+  GEO = { field: fieldGeomCss() };
+  const br = el.bottomRow, hr = el.historyRow;
+  GEO.hist = { x: br.offsetLeft + hr.offsetLeft, y: br.offsetTop, h: br.offsetHeight };
+  buildTimeline();
+  renderFieldOnce();
+  renderEndField();
+  window.AD_INFO = { W, H, DURATION, AR, fonts: [...document.fonts].filter((f) => f.status === "loaded").map((f) => f.family) };
+  renderAt(0);
+  window.__adReady = true;
+  if (!RENDER) {
+    let t0 = performance.now(), paused = false, tp = 0;
+    window.addEventListener("keydown", (ev) => {
+      if (ev.code === "Space") { paused = !paused; if (!paused) t0 = performance.now() - tp * 1000; }
+      if (ev.code === "ArrowRight") { tp = Math.min(DURATION, tp + 0.5); t0 = performance.now() - tp * 1000; }
+      if (ev.code === "ArrowLeft") { tp = Math.max(0, tp - 0.5); t0 = performance.now() - tp * 1000; }
+    });
+    window.addEventListener("resize", applyLayout);
+    const loop = () => {
+      if (!paused) tp = ((performance.now() - t0) / 1000) % DURATION;
+      renderAt(tp);
+      requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
+  }
+}
+window.renderAt = renderAt;
+document.addEventListener("DOMContentLoaded", init);
+})();
+</script>
+</body>
+</html>

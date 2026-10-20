@@ -35,6 +35,7 @@ const comBridge = process.platform === "darwin"
   ? require("./mac-bridge.js")
   : require("./com-bridge.js");
 const { loadConfig, saveConfig } = require("./config.js");
+const { createLicensing } = require("./licensing.js");
 const {
   rgbToLab,
   relativeLuminance,
@@ -54,10 +55,25 @@ function setupFileLogging() {
     const origLog = console.log.bind(console);
     const origError = console.error.bind(console);
     const origWarn = console.warn.bind(console);
+    // 로그 파일이 무한정 커지지 않도록 5MB를 넘으면 .old로 한 번 돌린다
+    // (사용자 PC 디스크를 조용히 채우는 건 판매용 앱에서 용납 안 됨).
+    const LOG_MAX_BYTES = 5 * 1024 * 1024;
+    let bytesSinceCheck = Infinity;
+    function rotateIfNeeded() {
+      try {
+        if (bytesSinceCheck < 256 * 1024) return;
+        bytesSinceCheck = 0;
+        if (fs.existsSync(logFilePath) && fs.statSync(logFilePath).size > LOG_MAX_BYTES) {
+          fs.renameSync(logFilePath, logFilePath + ".old");
+        }
+      } catch (e) { /* 무시 */ }
+    }
     function writeLine(prefix, args) {
       try {
+        rotateIfNeeded();
         const line = `[${new Date().toISOString()}] ${prefix} ` + args.map(String).join(" ") + "\n";
         fs.appendFileSync(logFilePath, line);
+        bytesSinceCheck += line.length;
       } catch (e) { /* 로그 파일 쓰기 실패는 무시 (콘솔 로그는 이미 나갔음) */ }
     }
     console.log = (...args) => { origLog(...args); writeLine("LOG", args); };
@@ -89,6 +105,7 @@ function setupFileLogging() {
 // @miniben90/x-win의 activeWindow()는 동기 함수라 async/await 없이 바로
 // 쓸 수 있다. 실패(권한 문제, 지원 안 되는 환경 등)하면 기능을 완전히
 // 막지 않도록 안전하게 "허용"으로 폴백한다.
+let lastInactiveLogKey = null; // 같은 "비활성" 판정 로그가 150ms마다 반복 기록되는 것 방지
 function isPhotoshopActive() {
   try {
     const win = activeWindow();
@@ -96,7 +113,10 @@ function isPhotoshopActive() {
     const execName = ((win.info && win.info.execName) || "").toLowerCase();
     const title = (win.title || "").toLowerCase();
     const result = execName.includes("photoshop") || title.includes("photoshop");
-    if (!result) {
+    if (result) {
+      lastInactiveLogKey = null;
+    } else if (lastInactiveLogKey !== execName + "|" + title) {
+      lastInactiveLogKey = execName + "|" + title;
       // 진단용: Photoshop이 아니라고 판단한 그 순간의 실제 활성 창 정보를
       // 남긴다. 만약 Photoshop이 띄운 대화상자(색상 피커, 필터 갤러리 등)의
       // execName/title에 "photoshop"이 안 들어있어서 오탐되는 거라면,
@@ -105,7 +125,10 @@ function isPhotoshopActive() {
     }
     return result;
   } catch (e) {
-    console.error("[overlay] 활성 창 확인 실패 (Photoshop 감지 없이 계속 진행):", e.message);
+    if (lastInactiveLogKey !== "ERR") {
+      lastInactiveLogKey = "ERR";
+      console.error("[overlay] 활성 창 확인 실패 (Photoshop 감지 없이 계속 진행):", e.message);
+    }
     return true;
   }
 }
@@ -193,8 +216,8 @@ function getBundledCcxPath() {
   // 패키징된 앱(electron-builder로 만든 설치판)에서는 extraResources가
   // process.resourcesPath 아래에 위치하고, 개발 중(npm start)에는
   // 프로젝트 폴더의 resources/ 안에 있다.
-  const packaged = path.join(process.resourcesPath, "tourbox-luminance-picker.ccx");
-  const dev = path.join(__dirname, "resources", "tourbox-luminance-picker.ccx");
+  const packaged = path.join(process.resourcesPath, "sha-paint-plugin.ccx");
+  const dev = path.join(__dirname, "resources", "sha-paint-plugin.ccx");
   return fs.existsSync(packaged) ? packaged : dev;
 }
 
@@ -282,11 +305,50 @@ const state = {
 // 색을 고르는 중간 과정이 아니라, pointerup으로 커밋되거나 휠 조정이
 // 끝나서 실제 적용된 시점에만 호출됨). 바로 직전 색과 같으면 중복
 // 추가하지 않는다.
+// 같은 색이 히스토리 안에 이미 있으면(바로 직전이 아니어도) 맨 앞으로
+// 끌어올린다 — 예전엔 직전 색과만 비교해서 A,B,A,B를 오가면 같은 색이
+// 여러 칸을 차지해 정작 모아둔 색들이 밀려났다.
 function pushHistory(r, g, b) {
   const last = state.history[0];
   if (last && last.r === r && last.g === g && last.b === b) return;
+  state.history = state.history.filter((h) => !(h.r === r && h.g === g && h.b === b));
   state.history.unshift({ r, g, b });
   if (state.history.length > HISTORY_MAX) state.history.length = HISTORY_MAX;
+  scheduleHistorySave();
+}
+
+// 히스토리 영속화: 앱을 껐다 켜도(또는 Photoshop 종료로 자동 종료돼도)
+// 모아둔 색이 사라지지 않게 userData에 저장한다.
+let historySaveTimer = null;
+function getHistoryPath() {
+  return path.join(app.getPath("userData"), "sha-paint-history.json");
+}
+function saveHistoryNow() {
+  if (historySaveTimer) { clearTimeout(historySaveTimer); historySaveTimer = null; }
+  try {
+    fs.writeFileSync(getHistoryPath(), JSON.stringify(state.history), "utf8");
+  } catch (e) {
+    console.error("[overlay] 히스토리 저장 실패:", e.message);
+  }
+}
+function scheduleHistorySave() {
+  if (historySaveTimer) clearTimeout(historySaveTimer);
+  historySaveTimer = setTimeout(saveHistoryNow, 500);
+}
+function loadHistory() {
+  try {
+    const arr = JSON.parse(fs.readFileSync(getHistoryPath(), "utf8"));
+    if (!Array.isArray(arr)) return;
+    const valid = (v) => Number.isInteger(v) && v >= 0 && v <= 255;
+    state.history = arr
+      .filter((c) => c && valid(c.r) && valid(c.g) && valid(c.b))
+      .slice(0, HISTORY_MAX)
+      .map((c) => ({ r: c.r, g: c.g, b: c.b }));
+    if (state.history.length) {
+      const c = state.history[0];
+      setBaseFromRgb(c.r, c.g, c.b);
+    }
+  } catch (e) { /* 첫 실행이거나 파일이 깨졌으면 빈 히스토리로 시작 */ }
 }
 
 function ensureBaseReady() {
@@ -554,6 +616,12 @@ function sendPopupOpen() {
 // 딱 한 번만 잡는다 — 핀 모드가 아니면 그 이후로는 다시 안 움직인다.
 function showPopup() {
   if (popupVisible) return;
+  // 라이선스가 확인되지 않았으면(첫 확인 결과가 나오기 전엔 막지 않음)
+  // 팔레트 대신 키 입력 창을 띄운다.
+  if (licenseState && !licenseState.licensed) {
+    createLicenseWindow();
+    return;
+  }
   popupVisible = true;
   console.log("[overlay] 팝업 열림");
   positionOverlayAtCursor();
@@ -589,7 +657,18 @@ ipcMain.on("popup-color-picked", (_evt, payload) => {
   console.log(`[overlay] 팔레트에서 색 선택 수신: r=${payload.r} g=${payload.g} b=${payload.b}`);
   setBaseFromRgb(payload.r, payload.g, payload.b);
   pushHistory(payload.r, payload.g, payload.b);
+  // 팝업이 열려 있는 동안에도 방금 고른 색이 히스토리 줄에 바로 보이게
+  // 한다(예전엔 팝업을 닫았다 다시 열어야 갱신됐다). 필드 상태는 건드리지
+  // 않도록 히스토리만 따로 보낸다.
+  if (overlayWin && !overlayWin.isDestroyed()) overlayWin.webContents.send("popup-history", state.history);
   sendToUxp({ type: "setColor", r: payload.r, g: payload.g, b: payload.b });
+});
+
+// 팝업 상단의 닫기(×) 버튼. Esc가 전역 후킹에 안 잡히는 환경이 보고돼서,
+// 키보드에 의존하지 않고 펜으로 바로 닫을 수 있는 경로를 둔다.
+ipcMain.on("popup-close-request", () => {
+  console.log("[overlay] 팝업 닫기 버튼 클릭");
+  hidePopup();
 });
 
 // ---------------------------------------------------------------------
@@ -623,17 +702,65 @@ let lastSetCommandTime = 0; // 우리가 마지막으로 SET(전경색 설정) �
 // setBaseFromRgb만 부르고 pushHistory를 안 불러서 히스토리에 안 남는
 // 문제도 있었는데, 이렇게 통합하면 그것도 함께 해결된다.
 let handleExternalColor = null;
+let handleTrustedColor = null;
+
+// UXP 플러그인 v2부터는 연결 직후 {type:"hello", protocol:2}를 보내고,
+// setColor마다 {type:"setResult", id, ok}로 결과를 돌려준다. 이 경우엔
+// UXP(batchPlay)로만 색을 적용하고, 실패/무응답일 때만 COM으로 재시도한다.
+// 예전엔 항상 UXP와 COM 두 경로로 동시에 SET을 보내서 Photoshop이 같은
+// 명령을 두 번 처리하느라 혼잡해졌고, 그게 "색 적용 실패"가 잦았던 원인
+// 중 하나였다. 구버전 플러그인(hello 없음)이면 예전처럼 둘 다 보낸다.
+let uxpProtocol = 0;
+let uxpSetSeq = 0;
+let pendingUxpSet = null; // { id, payload, timer } — 가장 최근 것 하나만 유지
+const UXP_SET_ACK_TIMEOUT_MS = 1500;
+
+function comSetFallback(payload, why) {
+  console.warn(`[overlay] UXP 색 적용 ${why} -> COM으로 재시도`);
+  lastSetCommandTime = Date.now();
+  comBridge.setForegroundColor(payload.r, payload.g, payload.b, updateBridgeHealth);
+}
+
+function settlePendingUxpSet(id, ok) {
+  if (!pendingUxpSet || (id !== undefined && pendingUxpSet.id !== id)) return;
+  const p = pendingUxpSet;
+  pendingUxpSet = null;
+  clearTimeout(p.timer);
+  if (ok) updateBridgeHealth(true);
+  else comSetFallback(p.payload, "실패");
+}
 
 function sendToUxp(payload) {
   const wsConnected = uxpSocket && uxpSocket.readyState === uxpSocket.OPEN;
   console.log(`[overlay] sendToUxp(${payload.type}) 호출됨. WS 연결됨=${!!wsConnected}`);
+  if (payload.type === "setColor") {
+    lastSetCommandTime = Date.now();
+    if (wsConnected && uxpProtocol >= 2) {
+      // 더 새로운 색이 나가면 이전 것의 폴백은 의미가 없다(오래된 색으로
+      // 되돌려버리는 사고 방지).
+      if (pendingUxpSet) { clearTimeout(pendingUxpSet.timer); pendingUxpSet = null; }
+      const id = ++uxpSetSeq;
+      pendingUxpSet = {
+        id,
+        payload,
+        timer: setTimeout(() => {
+          if (pendingUxpSet && pendingUxpSet.id === id) {
+            pendingUxpSet = null;
+            comSetFallback(payload, "응답 없음");
+          }
+        }, UXP_SET_ACK_TIMEOUT_MS)
+      };
+      uxpSocket.send(JSON.stringify({ ...payload, id }));
+      return;
+    }
+    if (wsConnected) uxpSocket.send(JSON.stringify(payload));
+    comBridge.setForegroundColor(payload.r, payload.g, payload.b, updateBridgeHealth);
+    return;
+  }
   if (wsConnected) {
     uxpSocket.send(JSON.stringify(payload));
   }
-  if (payload.type === "setColor") {
-    lastSetCommandTime = Date.now();
-    comBridge.setForegroundColor(payload.r, payload.g, payload.b, updateBridgeHealth);
-  } else if (payload.type === "activateEyedropper") {
+  if (payload.type === "activateEyedropper") {
     comBridge.activateTool("eyedropperTool");
   } else if (payload.type === "activateBrush") {
     comBridge.activateTool("paintbrushTool");
@@ -644,21 +771,31 @@ function startWsServer() {
   wss = new WebSocketServer({ port: WS_PORT });
   wss.on("connection", (socket) => {
     uxpSocket = socket;
-    console.log("[overlay] UXP plugin connected");
+    uxpProtocol = 0;
+    console.log("[overlay] UXP plugin connected — COM 전경색 폴링을 멈춥니다(UXP set 이벤트가 담당)");
+    comBridge.setPolling(false);
     socket.on("message", (raw) => {
       try {
         const data = JSON.parse(raw.toString());
-        if (data.type === "foregroundColor") {
+        if (data.type === "hello") {
+          uxpProtocol = Number(data.protocol) || 0;
+          console.log(`[overlay] UXP 플러그인 프로토콜 v${uxpProtocol} (버전 ${data.version || "?"})`);
+        } else if (data.type === "setResult") {
+          settlePendingUxpSet(data.id, !!data.ok);
+        } else if (data.type === "log") {
+          console.log("[uxp]", String(data.message).slice(0, 2000));
+        } else if (data.type === "foregroundColor") {
           if (data.trusted) {
             // UXP가 Photoshop의 set 이벤트 디스크립터에서 재조회 없이
-            // 직접 뽑아낸 값 — "그 순간 다시 물어본 값"이 아니라 "실제로
-            // 그렇게 설정된 값"이라 오독일 수가 없다. 검정 방어 로직
-            // (오실레이션 감지 등)을 거치면 오히려 예전 세션에서 확정된
-            // 다른 색 조합 때문에 이 정확한 값이 억제될 위험이 있어서,
-            // 방어 로직 없이 그대로 반영한다.
-            setBaseFromRgb(data.r, data.g, data.b);
-            pushHistory(data.r, data.g, data.b);
-            if (popupVisible) sendPopupOpen();
+            // 직접 뽑아낸 값 — "실제로 그렇게 설정된 값"이라 오독일 수가
+            // 없으므로 방어 로직 없이 그대로 반영한다.
+            if (handleTrustedColor) {
+              handleTrustedColor(data.r, data.g, data.b);
+            } else {
+              setBaseFromRgb(data.r, data.g, data.b);
+              pushHistory(data.r, data.g, data.b);
+              if (popupVisible) sendPopupOpen();
+            }
           } else if (handleExternalColor) {
             // UXP 쪽 폴백(재조회) 경로 등 신뢰도가 확실치 않은 값은 COM
             // 폴링 경로와 동일한 방어 파이프라인을 통과시킨다.
@@ -675,6 +812,14 @@ function startWsServer() {
     socket.on("close", () => {
       if (uxpSocket === socket) {
         uxpSocket = null;
+        uxpProtocol = 0;
+        comBridge.setPolling(true);
+        if (pendingUxpSet) {
+          const p = pendingUxpSet;
+          pendingUxpSet = null;
+          clearTimeout(p.timer);
+          comSetFallback(p.payload, "도중 연결 끊김");
+        }
         // 패널을 닫아도 연결이 계속 유지되는지 궁금해하는 사용자를 위한
         // 로그 — 이 로그가 찍히면 실제로 끊긴 것이고(패널을 닫는 게
         // 곧 연결 종료), 안 찍히면 계속 연결이 유지되고 있다는 뜻이다.
@@ -821,7 +966,6 @@ function startInputHook() {
     // 버튼 번호를 전부 남긴다 — 만약 펜 촉 터치가 LEFT_MOUSE_BUTTON(1)이
     // 아닌 다른 번호로 들어온다면, 아래 mouseButtonDown 게이트 자체가
     // 걸리지 않아서 스트로크 도중 색 오독이 그대로 새어나갈 수 있다.
-    console.log(`[overlay] mousedown 감지: e.button=${e.button} (LEFT_MOUSE_BUTTON=${LEFT_MOUSE_BUTTON})`);
 
     if (e.button === LEFT_MOUSE_BUTTON) {
       mouseButtonDown = true;
@@ -838,7 +982,6 @@ function startInputHook() {
     }
   });
   uIOhook.on("mouseup", (e) => {
-    console.log(`[overlay] mouseup 감지: e.button=${e.button}`);
     if (e.button === LEFT_MOUSE_BUTTON) {
       mouseButtonDown = false;
       strokeEndTime = Date.now();
@@ -908,6 +1051,56 @@ ipcMain.handle("settings-key-label", (_evt, keycode) => {
 ipcMain.handle("settings-trigger-label", (_evt, trigger) => triggerLabel(trigger));
 
 // ---------------------------------------------------------------------
+// 라이선스
+// ---------------------------------------------------------------------
+
+let licensing = null;
+let licenseState = null; // { licensed, reason, key, devMode } — null이면 아직 첫 확인 전
+let licenseWin = null;
+const LICENSE_RECHECK_MS = 6 * 60 * 60 * 1000;
+
+function applyLicenseState(s) {
+  const wasLicensed = licenseState && licenseState.licensed;
+  licenseState = s;
+  console.log(`[license] 상태: ${s.licensed ? "확인됨" : "미확인"}${s.devMode ? " (개발 모드)" : ""}${s.reason ? " — " + s.reason : ""}`);
+  if (!s.licensed && popupVisible) hidePopup();
+  if (licenseWin && !licenseWin.isDestroyed()) licenseWin.webContents.send("license-state", s);
+  if (!s.licensed && wasLicensed !== false) createLicenseWindow();
+}
+
+async function refreshLicense(opts) {
+  try {
+    applyLicenseState(await licensing.check(opts));
+  } catch (e) {
+    console.error("[license] 확인 중 예외:", e && e.stack ? e.stack : e);
+  }
+}
+
+function createLicenseWindow() {
+  if (licenseWin && !licenseWin.isDestroyed()) { licenseWin.show(); licenseWin.focus(); return; }
+  licenseWin = new BrowserWindow({
+    width: 420,
+    height: 260,
+    resizable: false,
+    title: "SHA Paint 라이선스",
+    webPreferences: { preload: path.join(__dirname, "license-preload.js"), contextIsolation: true, sandbox: false }
+  });
+  licenseWin.setMenuBarVisibility(false);
+  licenseWin.loadFile(path.join(__dirname, "license.html"));
+  licenseWin.webContents.on("did-finish-load", () => {
+    if (licenseState) licenseWin.webContents.send("license-state", licenseState);
+    else if (licensing) licenseWin.webContents.send("license-state", { licensed: false, reason: "", key: licensing.readKey() });
+  });
+  licenseWin.on("closed", () => { licenseWin = null; });
+}
+
+ipcMain.handle("license-activate", async (_evt, key) => {
+  const s = await licensing.activate(key);
+  applyLicenseState(s);
+  return s;
+});
+
+// ---------------------------------------------------------------------
 // 트레이 아이콘
 // ---------------------------------------------------------------------
 
@@ -926,6 +1119,7 @@ ipcMain.handle("settings-trigger-label", (_evt, trigger) => triggerLabel(trigger
 // 생명주기 이벤트를 기다리지 않고 바로 끝내므로, 여기서 정리를 먼저
 // 안 해두면 PowerShell 프로세스가 좀비로 남을 수 있어서 순서가 중요하다.
 function cleanupBeforeExit() {
+  if (historySaveTimer) saveHistoryNow();
   try { uIOhook.stop(); } catch (e) { /* noop */ }
   if (wss) { try { wss.close(); } catch (e) { /* noop */ } }
   comBridge.stopBridge();
@@ -945,6 +1139,7 @@ function createTray() {
     { label: "Photoshop 연결 테스트 (콘솔 확인)", click: () => comBridge.testConnection() },
     { label: "로그 파일 열기...", click: () => { if (logFilePath) shell.openPath(logFilePath); } },
     { label: "Photoshop 플러그인 설치...", click: () => openPluginInstaller() },
+    { label: "라이선스 키 입력...", click: () => createLicenseWindow() },
     { type: "separator" },
     { label: "종료", click: () => quitApp("사용자가 트레이 메뉴에서 종료") }
   ]);
@@ -973,6 +1168,10 @@ if (gotSingleInstanceLock) {
   app.whenReady().then(() => {
   setupFileLogging();
   config = loadConfig(app);
+  loadHistory();
+  licensing = createLicensing({ userDataDir: app.getPath("userData"), log: console });
+  refreshLicense();
+  setInterval(() => refreshLicense(), LICENSE_RECHECK_MS);
   createOverlayWindow();
   createStatusPanelWindow();
   createTray();
@@ -1107,14 +1306,20 @@ if (gotSingleInstanceLock) {
         watchedCount = 1;
       }
       watchedExpireAt = now + OSCILLATION_WINDOW_MS;
+      // 색X -> 검정 -> 색X 로 "정확히 같은 색"에 되돌아왔다면 그 사이의
+      // 검정은 사용자가 고른 색이 아니라 왕복 글리치다. 예전엔 임계값(2회)을
+      // 채울 때까지 첫 검정이 히스토리에 남아 있었는데, 이제 첫 왕복부터
+      // 바로 히스토리에서 제거한다. (임계값은 "앞으로 오는 검정을 아예
+      // 무시할지"를 정하는 데만 쓴다.)
+      const stale = new Set(blackCandidates.filter((c) => sameColor(c.from, incoming)).map((c) => c.obj));
+      const beforeLen = state.history.length;
+      if (stale.size) state.history = state.history.filter((h) => !stale.has(h));
+      blackCandidates = blackCandidates.filter((c) => !stale.has(c.obj));
+      if (state.history.length !== beforeLen) {
+        console.log(`[overlay] -> (2차 방어) 색 rgb(${incoming.r},${incoming.g},${incoming.b})<->검정 왕복 감지(${watchedCount}회) -> 그 사이 검정을 히스토리에서 제거`);
+        scheduleHistorySave();
+      }
       if (watchedCount >= effectiveTriggerCount) {
-        const stale = new Set(blackCandidates.filter((c) => sameColor(c.from, incoming)).map((c) => c.obj));
-        const beforeLen = state.history.length;
-        if (stale.size) state.history = state.history.filter((h) => !stale.has(h));
-        blackCandidates = blackCandidates.filter((c) => !stale.has(c.obj));
-        if (state.history.length !== beforeLen) {
-          console.log(`[overlay] -> (2차 방어) 색 rgb(${incoming.r},${incoming.g},${incoming.b})<->검정 왕복이 반복 확인됨(${watchedCount}회, 임계값=${effectiveTriggerCount}) -> 글리치로 확정, 히스토리에서 제거`);
-        }
         // 이번 세션이 글리치가 잦다는 걸 확정했으니, 앞으로 5분간은
         // 다른 색 조합도 더 빨리(1회만에) 억제하도록 완화한다.
         sessionGlitchProneUntil = now + SESSION_GLITCH_PRONE_MS;
@@ -1139,7 +1344,51 @@ if (gotSingleInstanceLock) {
     if (popupVisible) sendPopupOpen();
   }
 
-  handleExternalColor = applyIncomingColor; // WS 서버(모듈 최상위 스코프)에서도 같은 방어 파이프라인을 쓸 수 있도록 참조 공개
+  // 0차 방어(검정 보류): 신뢰할 수 없는 경로(COM 폴링, UXP 재조회)로 들어온
+  // 검정은 바로 반영하지 않고 BLACK_HOLD_MS 동안 보류한다. 그 사이에 다른
+  // 색 보고가 들어오면 검정은 "순간적으로 튄 값"이었으므로 화면/히스토리에
+  // 한 번도 나타나지 않은 채 폐기된다. 보류 시간이 지나도록 아무 보고가
+  // 없으면(COM은 바뀐 색만 보고하므로 = 여전히 검정) 진짜 검정으로 보고
+  // 그대로 반영한다 — 스포이드/D키로 고른 검정은 0.7초 늦게 들어올 뿐
+  // 반드시 히스토리에 남는다.
+  const BLACK_HOLD_MS = 700;
+  let heldBlackTimer = null;
+
+  function cancelHeldBlack(reason) {
+    if (!heldBlackTimer) return false;
+    clearTimeout(heldBlackTimer);
+    heldBlackTimer = null;
+    console.log(`[overlay] -> (0차 방어) 보류 중이던 검정 폐기: ${reason}`);
+    return true;
+  }
+
+  function receiveUntrustedColor(r, g, b, tag) {
+    const isBlack = r === 0 && g === 0 && b === 0;
+    if (isBlack) {
+      if (heldBlackTimer) return; // 이미 보류 중
+      heldBlackTimer = setTimeout(() => {
+        heldBlackTimer = null;
+        applyIncomingColor(0, 0, 0, tag);
+      }, BLACK_HOLD_MS);
+      return;
+    }
+    cancelHeldBlack(`${BLACK_HOLD_MS}ms 안에 rgb(${r},${g},${b})가 들어옴 (글리치)`);
+    applyIncomingColor(r, g, b, tag);
+  }
+
+  // UXP가 Photoshop set 이벤트 디스크립터에서 직접 뽑은 값 — "실제로 설정된
+  // 값"이라 오독일 수 없으므로 방어 없이 그대로 반영한다(검정 포함).
+  function applyTrustedColor(r, g, b) {
+    cancelHeldBlack("신뢰 경로(UXP set 이벤트)로 확정 색 도착");
+    lastAppliedColor = { r, g, b };
+    pendingBlackFrom = null;
+    setBaseFromRgb(r, g, b);
+    pushHistory(r, g, b);
+    if (popupVisible) sendPopupOpen();
+  }
+
+  handleExternalColor = receiveUntrustedColor; // WS 서버(모듈 최상위 스코프)에서도 같은 방어 파이프라인을 쓸 수 있도록 참조 공개
+  handleTrustedColor = applyTrustedColor;
 
 
   comBridge.startBridge(
@@ -1163,7 +1412,7 @@ if (gotSingleInstanceLock) {
         return;
       }
 
-      applyIncomingColor(r, g, b, tag);
+      receiveUntrustedColor(r, g, b, tag);
     },
     () => {
       if (!everSawPhotoshop) return; // 아직 한 번도 못 봤으면(=아직 안 켰을 수 있음) 무시

@@ -1,8 +1,8 @@
 {
   "name": "luminance-overlay-app",
   "version": "1.0.0",
-  "description": "Photoshop Luminance Picker와 짝을 이루는 OS 레벨 커서 오버레이 앱",
-  "author": "Luminance Picker Project",
+  "description": "SHA Paint — Photoshop용 동명도 팔레트",
+  "author": "SHA Studio",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -18,11 +18,12 @@
     "electron-builder": "^24.13.3"
   },
   "build": {
-    "appId": "com.yourcompany.luminanceoverlay",
+    "appId": "com.shastudio.shapaint",
+    "copyright": "Copyright © 2026 SHA Studio",
     "productName": "SHA Paint",
-    "files": ["main.js", "com-bridge.js", "mac-bridge.js", "preload.js", "overlay.html", "overlay.js", "overlay.css", "colorMath.js", "settings.html", "settings.js", "settings-preload.js", "settings.css", "config.js", "status-panel.html", "status-panel.js", "status-preload.js", "icons/*"],
+    "files": ["main.js", "com-bridge.js", "mac-bridge.js", "preload.js", "overlay.html", "overlay.js", "overlay.css", "colorMath.js", "settings.html", "settings.js", "settings-preload.js", "settings.css", "config.js", "status-panel.html", "status-panel.js", "status-preload.js", "licensing.js", "license.html", "license-window.js", "license-preload.js", "icons/*"],
     "extraResources": [
-      { "from": "resources/tourbox-luminance-picker.ccx", "to": "tourbox-luminance-picker.ccx" }
+      { "from": "resources/sha-paint-plugin.ccx", "to": "sha-paint-plugin.ccx" }
     ],
     "mac": {
       "category": "public.app-category.graphics-design",
@@ -41,7 +42,11 @@
       "**/*.node"
     ],
     "nsis": {
-      "oneClick": true,
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": false,
+      "include": "build/installer.nsh",
+      "language": "1042",
+      "multiLanguageInstaller": false,
       "perMachine": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,

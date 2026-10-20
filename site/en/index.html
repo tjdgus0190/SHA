@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SHA Paint — The same-value palette, right by your pen</title>
+<meta name="description" content="A Photoshop color palette that pops up right next to your pen. It keeps the lightness of your current color locked, so you only choose hue and saturation. For Windows 10/11." />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="SHA Paint — The same-value palette, right by your pen" />
+<meta property="og:description" content="Stop going back and forth to the color panel. Pick colors that keep the same value, right next to your pen." />
+<meta property="og:image" content="og-cover.png" />
+<meta property="og:image:width" content="1280" />
+<meta property="og:image:height" content="720" />
+<meta name="twitter:card" content="summary_large_image" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#1c1a1f;
+    --bg-raised:#242128;
+    --ink:#f2ede4;
+    --ink-dim:#a79f97;
+    --ink-faint:#75706b;
+    --line:rgba(242,237,228,0.1);
+    --gold:#e8a33d;
+    --gold-ink:#241a08;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+    line-height:1.6;
+  }
+  h1,h2,h3{
+    font-family:'Fraunces',serif;
+    font-weight:600;
+    letter-spacing:-0.01em;
+    margin:0;
+  }
+  p{margin:0;}
+  a{color:inherit;}
+  img,svg{display:block;max-width:100%;}
+
+  .wrap{
+    max-width:1040px;
+    margin:0 auto;
+    padding:0 28px;
+  }
+
+  /* -------- 명도-고정 색상 스트립 (실제 제품 로직으로 계산된 값, 장식이 아니라
+     "같은 명도에서 색조만 회전"이라는 핵심 메커니즘을 그대로 보여주는 요소) -------- */
+  .hue-strip{
+    height:6px;
+    background:linear-gradient(90deg,
+      #f34b8e,#f45351,#d4711e,#a58920,#709821,#2d9f59,
+      #2d9b8a,#3099a4,#3396bb,#3890dd,#887cf1,#ec36e1,#f34b8e);
+  }
+  .hue-strip.dark{
+    background:linear-gradient(90deg,
+      #8d1d4d,#921c23,#753c0d,#5a4a0e,#3c520e,#17562f,
+      #17544b,#185359,#1a5166,#1e4e7a,#2e3ab8,#821d7c,#8d1d4d);
+  }
+
+  /* -------- 네비 -------- */
+  nav{
+    padding:22px 0;
+  }
+  nav .wrap{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .wordmark{
+    font-family:'Fraunces',serif;
+    font-size:19px;
+    font-weight:600;
+    letter-spacing:-0.01em;
+  }
+  .nav-cta{
+    font-size:14px;
+    font-weight:600;
+    padding:9px 18px;
+    border-radius:7px;
+    background:var(--bg-raised);
+    border:1px solid var(--line);
+    text-decoration:none;
+  }
+  .nav-cta:hover{border-color:rgba(242,237,228,0.24);}
+  .nav-right{display:flex;align-items:center;gap:14px;}
+  .lang-link{font-size:13px;font-weight:600;color:var(--ink-dim);text-decoration:none;letter-spacing:0.04em;}
+  .lang-link:hover{color:var(--ink);}
+
+  /* -------- 히어로 -------- */
+  header.hero{
+    padding:64px 0 84px;
+  }
+  .hero-grid{
+    display:grid;
+    grid-template-columns:1.15fr 0.85fr;
+    gap:56px;
+    align-items:center;
+  }
+  .hero h1{
+    font-size:clamp(34px,4.6vw,54px);
+    line-height:1.12;
+    max-width:11.5em;
+  }
+  .hero .sub{
+    margin-top:22px;
+    font-size:17px;
+    color:var(--ink-dim);
+    max-width:38em;
+    line-height:1.7;
+  }
+  .hero .cta-row{
+    margin-top:32px;
+    display:flex;
+    align-items:center;
+    gap:16px;
+    flex-wrap:wrap;
+  }
+  .btn-primary{
+    display:inline-block;
+    background:var(--gold);
+    color:var(--gold-ink);
+    font-weight:700;
+    font-size:15.5px;
+    padding:14px 26px;
+    border-radius:8px;
+    text-decoration:none;
+  }
+  .btn-primary:hover{background:#f0ac48;}
+  .price-note{
+    font-size:14px;
+    color:var(--ink-faint);
+  }
+  .price-note b{color:var(--ink-dim); font-weight:600;}
+
+  /* 히어로 우측 시각 요소: 실제 동명도 필드를 흉내낸 원형 그라디언트 + 명도 트랙 */
+  .hero-visual{
+    background:var(--bg-raised);
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:22px;
+  }
+  .field-demo{
+    width:100%;
+    aspect-ratio:1.35/1;
+    border-radius:10px;
+    background:
+      radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 38%, rgba(28,26,31,1) 66%),
+      conic-gradient(from 90deg,
+        #f34b8e,#f45351,#d4711e,#a58920,#709821,#2d9f59,
+        #2d9b8a,#3099a4,#3396bb,#3890dd,#887cf1,#ec36e1,#f34b8e);
+    position:relative;
+  }
+  .field-demo .cursor-dot{
+    position:absolute;
+    width:16px; height:16px;
+    border:2px solid #fff;
+    border-radius:50%;
+    top:34%; left:63%;
+    box-shadow:0 0 0 1px rgba(0,0,0,.4);
+  }
+  .lightness-track-demo{
+    margin-top:14px;
+    height:14px;
+    border-radius:7px;
+    background:linear-gradient(90deg,#8d1d4d,#921c23,#753c0d,#5a4a0e,#3c520e,#17562f,#17544b,#185359,#1a5166,#1e4e7a,#2e3ab8,#821d7c);
+    position:relative;
+  }
+  .lightness-track-demo .handle{
+    position:absolute;
+    top:-3px;
+    left:63%;
+    width:8px;height:20px;
+    background:#f2ede4;
+    border-radius:3px;
+    border:1px solid rgba(0,0,0,0.4);
+  }
+  .hero-visual-caption{
+    margin-top:14px;
+    font-size:12.5px;
+    color:var(--ink-faint);
+    text-align:center;
+  }
+
+  /* -------- 섹션 공통 -------- */
+  section{padding:76px 0;}
+  section.divider-top{border-top:1px solid var(--line);}
+  .eyebrow-free-title{
+    font-size:clamp(26px,3.2vw,36px);
+    max-width:14em;
+  }
+  .section-lead{
+    margin-top:16px;
+    font-size:16px;
+    color:var(--ink-dim);
+    max-width:42em;
+    line-height:1.75;
+  }
+
+  /* -------- 고충 섹션: 카드가 아니라 비대칭 리스트 -------- */
+  .pain-list{
+    margin-top:48px;
+    display:flex;
+    flex-direction:column;
+  }
+  .pain-item{
+    display:grid;
+    grid-template-columns:2.1fr 2.9fr;
+    gap:40px;
+    padding:30px 0;
+    border-top:1px solid var(--line);
+  }
+  .pain-item:last-child{border-bottom:1px solid var(--line);}
+  .pain-item h3{
+    font-size:19px;
+    font-weight:500;
+    line-height:1.5;
+    color:var(--ink);
+  }
+  .pain-item .answer{
+    font-size:15px;
+    color:var(--ink-dim);
+    line-height:1.75;
+  }
+  .pain-item .answer b{color:var(--ink); font-weight:600;}
+
+  /* -------- 작동 방식: 진짜 순서가 있는 3단계라 번호 사용 -------- */
+  .steps{
+    margin-top:48px;
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:0;
+  }
+  .step{
+    padding:0 28px 0 0;
+    border-left:1px solid var(--line);
+    padding-left:28px;
+  }
+  .step:first-child{border-left:none; padding-left:0;}
+  .step-num{
+    font-family:'Fraunces',serif;
+    font-size:15px;
+    color:var(--ink-faint);
+    margin-bottom:14px;
+  }
+  .step h3{
+    font-size:19px;
+    font-weight:500;
+    margin-bottom:10px;
+  }
+  .step p{
+    font-size:14.5px;
+    color:var(--ink-dim);
+    line-height:1.7;
+  }
+  .step-swatch{
+    height:8px;
+    border-radius:4px;
+    margin-bottom:16px;
+    width:64px;
+  }
+
+  /* -------- 기능: 카드 아니라 담백한 목록 -------- */
+  .feature-list{
+    margin-top:40px;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:0 48px;
+  }
+  .feature-row{
+    display:flex;
+    gap:14px;
+    padding:18px 0;
+    border-top:1px solid var(--line);
+  }
+  .feature-row:nth-last-child(-n+1),
+  .feature-row:nth-last-child(-n+2){
+    border-bottom:1px solid var(--line);
+  }
+  .feature-dot{
+    width:7px; height:7px;
+    border-radius:50%;
+    margin-top:9px;
+    flex:none;
+  }
+  .feature-row h4{
+    font-size:15.5px;
+    font-weight:600;
+    margin:0 0 4px;
+  }
+  .feature-row p{
+    font-size:14px;
+    color:var(--ink-dim);
+    line-height:1.6;
+  }
+
+  /* -------- 가격 -------- */
+  .pricing-block{
+    margin-top:44px;
+    background:var(--bg-raised);
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:44px 40px;
+    display:grid;
+    grid-template-columns:1fr auto;
+    align-items:center;
+    gap:32px;
+  }
+  .price-tag{
+    font-family:'Fraunces',serif;
+    font-size:52px;
+    font-weight:600;
+  }
+  .price-tag sup{
+    font-size:22px;
+    top:-1.4em;
+  }
+  .price-krw{
+    margin-top:2px;
+    font-size:13.5px;
+    color:var(--ink-faint);
+  }
+  .price-includes{
+    margin-top:18px;
+    font-size:14px;
+    color:var(--ink-dim);
+    line-height:1.9;
+  }
+  .pricing-block .btn-primary{width:100%;text-align:center;}
+
+  /* -------- FAQ -------- */
+  .faq-list{margin-top:40px;}
+  .faq-item{
+    padding:22px 0;
+    border-top:1px solid var(--line);
+  }
+  .faq-item:last-child{border-bottom:1px solid var(--line);}
+  .faq-item h4{
+    font-size:15.5px;
+    font-weight:600;
+    margin-bottom:8px;
+  }
+  .faq-item p{
+    font-size:14.5px;
+    color:var(--ink-dim);
+    line-height:1.75;
+    max-width:52em;
+  }
+
+  /* -------- 최종 CTA -------- */
+  .final-cta{
+    text-align:center;
+    padding:88px 0 96px;
+  }
+  .final-cta h2{
+    font-size:clamp(28px,4vw,40px);
+    max-width:14em;
+    margin:0 auto;
+  }
+  .final-cta .cta-row{
+    justify-content:center;
+    margin-top:30px;
+  }
+
+  footer{
+    border-top:1px solid var(--line);
+    padding:28px 0;
+  }
+  footer .wrap{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:12px;
+  }
+  footer p{font-size:13px; color:var(--ink-faint);}
+
+  @media (max-width:760px){
+    .hero-grid{grid-template-columns:1fr;}
+    .pain-item{grid-template-columns:1fr; gap:12px;}
+    .steps{grid-template-columns:1fr; gap:32px;}
+    .step{border-left:none; padding-left:0;}
+    .feature-list{grid-template-columns:1fr;}
+    .pricing-block{grid-template-columns:1fr; text-align:left;}
+  }
+
+  /* -------- Before/After 데모: "색 하나 고르려고 얼마나 움직여야 하는지"를
+     실제 애니메이션으로 보여준다. 스크린샷이 아니라, 두 상황의 "거리
+     차이" 자체가 정보라서 정적 이미지보다 움직임이 훨씬 잘 설명한다. -------- */
+  .demo-grid{
+    margin-top:44px;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:22px;
+  }
+  .demo-panel{
+    background:var(--bg-raised);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:18px 18px 20px;
+  }
+  .demo-panel .demo-label{
+    font-size:13px;
+    font-weight:600;
+    color:var(--ink-dim);
+    margin-bottom:12px;
+  }
+  .demo-panel.is-after .demo-label{color:var(--gold);}
+  .demo-stage{
+    position:relative;
+    width:100%;
+    aspect-ratio:16/11;
+    border-radius:9px;
+    background:#141317;
+    overflow:hidden;
+  }
+  .demo-stage::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    background:
+      radial-gradient(ellipse 60% 45% at 38% 55%, rgba(232,163,61,0.08), transparent),
+      radial-gradient(ellipse 40% 30% at 65% 40%, rgba(56,144,221,0.06), transparent);
+  }
+  .far-panel{
+    position:absolute;
+    top:8%; right:6%;
+    width:26%;
+    padding:7px;
+    background:#1c1a1f;
+    border:1px solid var(--line);
+    border-radius:6px;
+  }
+  .far-panel .far-swatch-row{display:flex; gap:4px;}
+  .far-panel .far-swatch{
+    flex:1;
+    aspect-ratio:1;
+    border-radius:2px;
+  }
+  .near-popup{
+    position:absolute;
+    top:44%; left:44%;
+    width:34%;
+    padding:6px;
+    background:#1c1a1f;
+    border:1px solid rgba(232,163,61,0.4);
+    border-radius:8px;
+    box-shadow:0 6px 18px rgba(0,0,0,0.5);
+    opacity:0;
+  }
+  .near-popup .popup-field{
+    width:100%;
+    aspect-ratio:1.3/1;
+    border-radius:5px;
+    background:conic-gradient(from 90deg,
+      #f34b8e,#f45351,#d4711e,#a58920,#709821,#2d9f59,
+      #2d9b8a,#3099a4,#3396bb,#3890dd,#887cf1,#ec36e1,#f34b8e);
+  }
+  .demo-cursor{
+    position:absolute;
+    width:11px; height:11px;
+    background:#f2ede4;
+    border:2px solid #141317;
+    border-radius:50% 50% 50% 2px;
+    transform:rotate(-45deg);
+    box-shadow:0 2px 5px rgba(0,0,0,0.5);
+    z-index:2;
+  }
+  .demo-panel.is-before .demo-cursor{ animation:cursor-far-trip 3.6s ease-in-out infinite; }
+  .demo-panel.is-after .demo-cursor{ animation:cursor-near-trip 3.6s ease-in-out infinite; }
+  .demo-panel.is-after .near-popup{ animation:near-popup-fade 3.6s ease-in-out infinite; }
+  @keyframes cursor-far-trip{
+    0%,8%   { top:66%; left:32%; }
+    38%,54% { top:12%; left:76%; }
+    84%,100%{ top:66%; left:32%; }
+  }
+  @keyframes cursor-near-trip{
+    0%,8%   { top:54%; left:40%; }
+    38%,54% { top:50%; left:47%; }
+    84%,100%{ top:54%; left:40%; }
+  }
+  @keyframes near-popup-fade{
+    0%,10%  { opacity:0; top:44%; left:44%; }
+    18%,74% { opacity:1; top:38%; left:44%; }
+    84%,100%{ opacity:0; top:44%; left:44%; }
+  }
+  .demo-panel .demo-caption{
+    margin-top:12px;
+    font-size:13.5px;
+    color:var(--ink-dim);
+    line-height:1.6;
+  }
+  @media (max-width:760px){
+    .demo-grid{grid-template-columns:1fr;}
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    html{scroll-behavior:auto;}
+    .demo-panel.is-before .demo-cursor,
+    .demo-panel.is-after .demo-cursor,
+    .near-popup{ animation:none !important; opacity:1; }
+    .demo-panel.is-before .demo-cursor{ top:66%; left:32%; }
+    .demo-panel.is-after .demo-cursor{ top:50%; left:47%; }
+  }
+</style>
+</head>
+<body>
+
+<div class="hue-strip"></div>
+
+<nav>
+  <div class="wrap">
+    <span class="wordmark">SHA Paint</span>
+    <div class="nav-right">
+      <a href="../" class="lang-link" hreflang="ko" lang="ko">한국어</a>
+      <a href="https://tjdgus76.gumroad.com/l/vutuls?wanted=true" class="nav-cta">Get it for $10</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <h1>Keep your hand on the canvas.<br>Keep your values steady.</h1>
+      <p class="sub">
+        Tired of reaching all the way to the color panel every time you switch colors?
+        SHA Paint pops up right next to your pen tip. It keeps the lightness of your
+        current color locked and lets you choose only the hue and saturation that fit.
+      </p>
+      <div class="cta-row">
+        <a href="https://tjdgus76.gumroad.com/l/vutuls?wanted=true" class="btn-primary gumroad-button">Download for $10</a>
+        <span class="price-note">One-time payment · Windows + Photoshop</span>
+      </div>
+    </div>
+    <div class="hero-visual">
+      <div class="field-demo"><div class="cursor-dot"></div></div>
+      <div class="lightness-track-demo"><div class="handle"></div></div>
+      <p class="hero-visual-caption">The field shows only colors that can exist at your current lightness</p>
+    </div>
+  </div>
+</header>
+
+<section class="divider-top demo-section">
+  <div class="wrap">
+    <h2 class="eyebrow-free-title">One color change, two very different trips</h2>
+    <p class="section-lead">
+      This is the moment you switch colors in the middle of a drawing. It's a simplified
+      mock-up rather than a screen capture, but the difference in how far your hand
+      travels is accurate.
+    </p>
+
+    <div class="demo-grid">
+      <div class="demo-panel is-before">
+        <p class="demo-label">Before</p>
+        <div class="demo-stage">
+          <div class="far-panel">
+            <div class="far-swatch-row">
+              <div class="far-swatch" style="background:#8d1d4d"></div>
+              <div class="far-swatch" style="background:#3c520e"></div>
+              <div class="far-swatch" style="background:#1a5166"></div>
+              <div class="far-swatch" style="background:#821d7c"></div>
+            </div>
+          </div>
+          <div class="demo-cursor"></div>
+        </div>
+        <p class="demo-caption">Every color change is a round trip to a panel off the canvas.</p>
+      </div>
+
+      <div class="demo-panel is-after">
+        <p class="demo-label">SHA Paint</p>
+        <div class="demo-stage">
+          <div class="near-popup"><div class="popup-field"></div></div>
+          <div class="demo-cursor"></div>
+        </div>
+        <p class="demo-caption">It opens where your pen is, and you pick your color right there.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="divider-top">
+  <div class="wrap">
+    <h2 class="eyebrow-free-title">Problems that keep coming back when you color</h2>
+    <p class="section-lead">
+      Whether you've been drawing for ten years or ten days, color tends to trip
+      everyone up in the same places.
+    </p>
+
+    <div class="pain-list">
+      <div class="pain-item">
+        <h3>Your values drift a little more with every shadow</h3>
+        <p class="answer">
+          Rotate the hue in a standard color picker and the lightness shifts along with it.
+          Matching by eye, your shadow and highlight values slowly drift apart, and the
+          finished piece loses depth. <b>SHA Paint locks your current lightness and moves
+          only hue and saturation</b>, so your values have nothing to drift from.
+        </p>
+      </div>
+      <div class="pain-item">
+        <h3>You leave the drawing just to pick a color</h3>
+        <p class="answer">
+          When you're zoomed in on details, that quick trip up to the color panel breaks
+          your focus more than you'd expect. <b>The popup opens right by your cursor</b>,
+          so you can change colors without leaving your current view or zoom level.
+        </p>
+      </div>
+      <div class="pain-item">
+        <h3>You keep hunting for colors you already chose</h3>
+        <p class="answer">
+          Skin tones and character colors get reused dozens of times in a single piece.
+          Instead of sampling them again with the eyedropper, <b>your 8 most recent colors
+          stay as swatches</b>, one click away.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="divider-top">
+  <div class="wrap">
+    <h2 class="eyebrow-free-title">Three steps. That's it.</h2>
+    <p class="section-lead">Almost nothing to set up, and nothing new to learn.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-swatch" style="background:#3099a4"></div>
+        <div class="step-num">1</div>
+        <h3>Start from a color</h3>
+        <p>Your current brush color, or any color you sample with the eyedropper,
+        becomes the palette's base.</p>
+      </div>
+      <div class="step">
+        <div class="step-swatch" style="background:#e8a33d"></div>
+        <div class="step-num">2</div>
+        <h3>Its value stays locked</h3>
+        <p>The lightness (L*) of that color stays fixed, while hue and saturation
+        spread out around it.</p>
+      </div>
+      <div class="step">
+        <div class="step-swatch" style="background:#887cf1"></div>
+        <div class="step-num">3</div>
+        <h3>Pick and paint</h3>
+        <p>Drag in the field or click a recent color, and your brush color changes
+        on the spot.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="divider-top">
+  <div class="wrap">
+    <h2 class="eyebrow-free-title">Also included</h2>
+
+    <div class="feature-list">
+      <div class="feature-row">
+        <div class="feature-dot" style="background:#f45351"></div>
+        <div><h4>Full gamut view</h4><p>Switch between precise and free exploration with one button.</p></div>
+      </div>
+      <div class="feature-row">
+        <div class="feature-dot" style="background:#2d9f59"></div>
+        <div><h4>Color history that sticks</h4><p>Your recent colors are saved, so they're still there the next time you open the app.</p></div>
+      </div>
+      <div class="feature-row">
+        <div class="feature-dot" style="background:#3890dd"></div>
+        <div><h4>On/off without shortcuts</h4><p>Turn it on or off with one click in a small panel in the corner of your screen.</p></div>
+      </div>
+      <div class="feature-row">
+        <div class="feature-dot" style="background:#ec36e1"></div>
+        <div><h4>Your choice of trigger</h4><p>Middle-click is the default, but you can switch to any key or mouse button.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="divider-top" id="pricing">
+  <div class="wrap">
+    <h2 class="eyebrow-free-title">Pricing</h2>
+    <p class="section-lead">No subscription. You pay once.</p>
+
+    <div class="pricing-block">
+      <div>
+        <div class="price-tag"><sup>$</sup>10</div>
+        <p class="price-krw">One-time payment · USD</p>
+        <p class="price-includes">
+          Windows 10/11 · Photoshop 2023 (v24.0) or later · One installer
+          (you'll enter your license key during setup)
+        </p>
+      </div>
+      <a href="https://tjdgus76.gumroad.com/l/vutuls?wanted=true" class="btn-primary gumroad-button">Download now</a>
+    </div>
+  </div>
+</section>
+
+<section class="divider-top">
+  <div class="wrap">
+    <h2 class="eyebrow-free-title">FAQ</h2>
+
+    <div class="faq-list">
+      <div class="faq-item">
+        <h4>Does it work on Mac?</h4>
+        <p>It's Windows-only for now.</p>
+      </div>
+      <div class="faq-item">
+        <h4>Is the app in English?</h4>
+        <p>The palette popup is almost entirely visual, but the installer, menus, and settings are currently in Korean. The FAQ entries below walk you through the screens you'll need.</p>
+      </div>
+      <div class="faq-item">
+        <h4>Do I need to keep a panel open in Photoshop?</h4>
+        <p>We recommend opening the SHA Paint panel once from Photoshop's Plugins menu and docking it in a corner. Color detection while drawing with a pen is most reliable when the panel is connected. If a color fails to apply, a notice appears at the top of the popup.</p>
+      </div>
+      <div class="faq-item">
+        <h4>What about Clip Studio Paint or other apps?</h4>
+        <p>They aren't supported right now. Most apps other than Photoshop don't offer an official way for outside programs to set colors, so we won't claim that it works.</p>
+      </div>
+      <div class="faq-item">
+        <h4>Windows says "Windows protected your PC" when I run it</h4>
+        <p>That's expected. SHA Paint is a new app that isn't code-signed yet, so Windows SmartScreen shows its standard warning for programs it hasn't seen before. Click "More info", then "Run anyway", to install. It isn't a virus or malware.</p>
+      </div>
+      <div class="faq-item">
+        <h4>Where do I find my license key?</h4>
+        <p>It's in the purchase confirmation email you get after checkout. Paste it into the license key screen during installation (the screen with a single text box).</p>
+      </div>
+      <div class="faq-item">
+        <h4>What if something goes wrong after I buy?</h4>
+        <p>Email us at the address below.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="hue-strip dark"></div>
+
+<section class="final-cta">
+  <div class="wrap">
+    <h2>Your next shadow, without the value guesswork</h2>
+    <div class="cta-row">
+      <a href="https://tjdgus76.gumroad.com/l/vutuls?wanted=true" class="btn-primary gumroad-button">Get started for $10</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>SHA Paint — A Photoshop palette for Windows</p>
+    <p>Contact: tjdgus0190@naver.com</p>
+  </div>
+</footer>
+
+<script src="https://gumroad.com/js/gumroad.js"></script>
+
+</body>
+</html>

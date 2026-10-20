@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<title>SHA Paint 15s Ad v2</title>
+<!--
+  SHA Paint 인스타그램 피드용 15초 광고 v2 (1080x1350, 4:5, 밝은 톤).
+  강조점: ① 펜을 패널까지 옮기는 불편 → 팔레트가 펜 바로 옆에
+          ② 지금 색을 기준으로 같은 명도의 어울리는 색을 바로 제공
+  - ?lang=en 영문판, ?render=1 이면 자동재생 없이 window.renderAt(t)로 프레임 렌더(render-v2.js)
+  - 팔레트 필드/색은 앱의 실제 색 계산(../../../app/colorMath.js)으로 그린다.
+-->
+<style>
+  @font-face { font-family: "KR"; src: local("Noto Sans KR"), local("NotoSansKR"), url("file:///C:/Windows/Fonts/NotoSansKR-VF.ttf"); font-weight: 100 900; }
+  @font-face { font-family: "KRFallback"; src: local("Malgun Gothic"), local("맑은 고딕"); }
+  @font-face { font-family: "Serif"; src: local("Noto Serif Bold"), local("NotoSerif-Bold"), url("file:///C:/Windows/Fonts/NotoSerif-Bold.ttf"); font-weight: 700; }
+  html, body { margin: 0; background: #f3eee6; overflow: hidden; }
+  canvas { display: block; }
+</style>
+<script src="../../../app/colorMath.js"></script>
+</head>
+<body>
+<canvas id="c" width="1080" height="1350"></canvas>
+<script>
+(() => {
+"use strict";
+const CM = window.ColorMath;
+const P = new URLSearchParams(location.search);
+const LANG = P.get("lang") === "en" ? "en" : "ko";
+const RENDER = P.get("render") === "1";
+const W = 1080, H = 1350, DURATION = 15;
+const cv = document.getElementById("c"), ctx = cv.getContext("2d");
+
+// ---------------- 색 ----------------
+const PAPER = "#f3eee6", INK = "#1c1a1f", INK_DIM = "#6f6860", ACCENT = "#d9822b", LINE = "#d8d0c4";
+const L0 = 65;                                        // 이 광고의 고정 명도
+function lab(h, ratio) {
+  const c = CM.findMaxChromaForHue(L0, h) * ratio;
+  const { a, b } = CM.polarToAB(c, h);
+  return { h, c, a, b, rgb: CM.labToRgb(L0, a, b, true) };
+}
+const css = (c) => `rgb(${c.r},${c.g},${c.b})`;
+const CUR = lab(28, 0.78);                             // 지금 색 (코랄)
+const PICKS = [lab(28, 0.78), lab(80, 0.72), lab(150, 0.6), lab(205, 0.62), lab(265, 0.7), lab(330, 0.68)];
+const GRAY = (() => { const v = CM.labToRgb(L0, 0, 0, true); return v; })();
+const OFF_L = [CM.labToRgb(40, 45, 30, true), CM.labToRgb(85, 8, 20, true)]; // 명도 어긋난 테스트 칠
+
+// ---------------- 문구 ----------------
+const T = {
+  ko: {
+    caps: [
+      { t0: 0.1, t1: 3.5, l1: "색 하나 바꾸려고", l2: "펜이 저기까지?", sub: "캔버스 ↔ 색상 패널, 매번 왕복" },
+      { t0: 3.6, t1: 6.5, l1: "이제 팔레트가", l2: "펜 바로 옆에", sub: "트리거 한 번, 커서 바로 옆에 뜹니다" },
+      { t0: 6.6, t1: 10.1, l1: "지금 색에 맞춰", l2: "같은 명도의 어울리는 색만", sub: "명도(L*)는 그대로, 색조·채도만 바뀝니다" },
+      { t0: 10.2, t1: 11.55, l1: "골라서 칠하기만 하면", l2: "흑백으로 봐도 밝기 그대로", sub: "칠한 색 3개 모두 L* " + L0 }
+    ],
+    before: "이만큼 왕복", after: "바로 옆", now: "지금 색", same: "모두 같은 명도 L* " + L0,
+    panel: "색상", tag: "펜 옆에 뜨는 <동명도> 팔레트", meta: "$10 · 1회 결제 · Photoshop · Windows",
+    cta: "프로필 링크에서 구매", disc: "실제 앱 UI와 색 계산으로 재현한 연출 화면"
+  },
+  en: {
+    caps: [
+      { t0: 0.1, t1: 3.5, l1: "Moving your pen", l2: "all the way over there?", sub: "Canvas ↔ color panel, every single time" },
+      { t0: 3.6, t1: 6.5, l1: "Now the palette", l2: "pops up by your pen", sub: "One trigger, right next to your cursor" },
+      { t0: 6.6, t1: 10.1, l1: "Matched to your color:", l2: "same value, colors that fit", sub: "Lightness (L*) stays put · only hue & chroma change" },
+      { t0: 10.2, t1: 11.55, l1: "Just pick and paint.", l2: "Same gray in grayscale.", sub: "All 3 colors at L* " + L0 }
+    ],
+    before: "every trip", after: "right here", now: "Current", same: "All at L* " + L0,
+    panel: "Color", tag: "The <same-value> palette by your pen", meta: "$10 · One-time · Photoshop · Windows",
+    cta: "Shop via link in bio", disc: "Simulated screen using the real app UI and color math"
+  }
+}[LANG];
+
+// ---------------- 유틸 ----------------
+const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const eio = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+const eout = (x) => 1 - Math.pow(1 - x, 3);
+const back = (x) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+const lerp = (a, b, k) => a + (b - a) * k;
+const KR = (w, s) => `${w} ${s}px KR, KRFallback, sans-serif`;
+function rr(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
+
+// 2줄 강조 텍스트(<...> 부분을 강조색)
+function richText(str, x, y, size, weight, base, accent, align = "center") {
+  const parts = str.split(/<|>/);
+  ctx.font = KR(weight, size);
+  const widths = parts.map((p) => ctx.measureText(p).width);
+  const total = widths.reduce((s, v) => s + v, 0);
+  let cx = align === "center" ? x - total / 2 : x;
+  ctx.textAlign = "left";
+  parts.forEach((p, i) => { ctx.fillStyle = i % 2 ? accent : base; ctx.fillText(p, cx, y); cx += widths[i]; });
+}
+// 폭을 넘으면 글자 크기를 줄여서 그린다
+function fitText(str, x, y, maxW, size, weight, color, align = "center") {
+  let s = size;
+  ctx.font = KR(weight, s);
+  while (ctx.measureText(str).width > maxW && s > 20) { s -= 2; ctx.font = KR(weight, s); }
+  ctx.fillStyle = color; ctx.textAlign = align; ctx.fillText(str, x, y);
+  return s;
+}
+
+// ---------------- 무대 레이아웃 ----------------
+const WIN = { x: 70, y: 400, w: 940, h: 760 };           // "그림 프로그램" 창
+const CANVAS = { x: 100, y: 450, w: 640, h: 680 };        // 흰 캔버스
+const PANEL = { x: 770, y: 450, w: 210, h: 210 };         // 오른쪽 위 색상 패널
+const FRUITS = [ { x: 330, y: 820, r: 120 }, { x: 540, y: 740, r: 95 }, { x: 500, y: 960, r: 105 } ];
+const HOME = { x: 420, y: 860 };                          // 펜이 그리던 자리
+const PANEL_PT = { x: 850, y: 655 };   // 패널의 색상 띠를 찍는 위치(펜이 자막을 가리지 않게)
+
+// 필드 이미지(고정 L0, 전체 색역 범위) — 팝업/확대 장면 공용
+const FIELD_RANGE = (() => { let m = 0; for (let h = 0; h < 360; h += 10) m = Math.max(m, CM.findMaxChromaForHue(L0, h)); return m * 1.08; })();
+function makeField(w, h) {
+  const oc = document.createElement("canvas"); oc.width = w; oc.height = h;
+  const o = oc.getContext("2d"), img = o.createImageData(w, h);
+  const sc = FIELD_RANGE / Math.min(w / 2, h / 2);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const c = CM.labFieldPixel(L0, (x - w / 2) * sc, (y - h / 2) * sc, false);
+    const i = (y * w + x) * 4;
+    if (c) { img.data[i] = c.r; img.data[i + 1] = c.g; img.data[i + 2] = c.b; img.data[i + 3] = 255; }
+  }
+  o.putImageData(img, 0, 0);
+  return { cv: oc, w, h, sc };
+}
+let FIELD_S, FIELD_L;
+function fieldPos(F, x, y, col) { return { x: x + F.w / 2 + col.a / F.sc, y: y + F.h / 2 + col.b / F.sc }; }
+
+// ---------------- 그리기 요소 ----------------
+function drawPen(x, y, alpha = 1, press = 0) {
+  ctx.save(); ctx.globalAlpha = alpha; ctx.translate(x, y); ctx.rotate(0.5);
+  ctx.shadowColor = "rgba(0,0,0,0.25)"; ctx.shadowBlur = 18; ctx.shadowOffsetX = 8; ctx.shadowOffsetY = 10;
+  ctx.fillStyle = "#2a2730"; rr(-12, -300, 24, 270, 12); ctx.fill();
+  ctx.shadowColor = "transparent";
+  ctx.fillStyle = "#45404d"; rr(-12, -150, 24, 34, 4); ctx.fill();
+  ctx.fillStyle = "#cfc8bd"; ctx.beginPath(); ctx.moveTo(-10, -32); ctx.lineTo(0, 0); ctx.lineTo(10, -32); ctx.closePath(); ctx.fill();
+  ctx.restore();
+  if (press > 0) { ctx.save(); ctx.globalAlpha = press * 0.5; ctx.strokeStyle = ACCENT; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(x, y, 14 + 20 * press, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); }
+}
+
+function drawWindow(dim) {
+  ctx.save();
+  ctx.shadowColor = "rgba(40,30,20,0.18)"; ctx.shadowBlur = 40; ctx.shadowOffsetY = 18;
+  ctx.fillStyle = "#e6e0d6"; rr(WIN.x, WIN.y, WIN.w, WIN.h, 22); ctx.fill();
+  ctx.restore();
+  ctx.fillStyle = "#d9d2c6"; rr(WIN.x, WIN.y, WIN.w, 34, [22, 22, 0, 0]); ctx.fill();
+  ["#ec6a5e", "#f4bf4f", "#61c554"].forEach((c, i) => { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(WIN.x + 24 + i * 22, WIN.y + 17, 6, 0, 7); ctx.fill(); });
+  ctx.fillStyle = "#ffffff"; rr(CANVAS.x, CANVAS.y, CANVAS.w, CANVAS.h, 8); ctx.fill();
+  // 색상 패널(오른쪽 위, 펜에서 먼 곳)
+  ctx.save(); ctx.globalAlpha = 1 - dim * 0.65;
+  ctx.fillStyle = "#cfc7ba"; rr(PANEL.x, PANEL.y, PANEL.w, PANEL.h + 70, 10); ctx.fill();
+  ctx.fillStyle = INK_DIM; ctx.font = KR(700, 20); ctx.textAlign = "left"; ctx.fillText(T.panel, PANEL.x + 14, PANEL.y + 30);
+  const gx = PANEL.x + 14, gy = PANEL.y + 44, gw = PANEL.w - 28, gh = 140;
+  let g = ctx.createLinearGradient(gx, 0, gx + gw, 0); g.addColorStop(0, "#fff"); g.addColorStop(1, "#e2412a");
+  ctx.fillStyle = g; ctx.fillRect(gx, gy, gw, gh);
+  g = ctx.createLinearGradient(0, gy, 0, gy + gh); g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, "#000");
+  ctx.fillStyle = g; ctx.fillRect(gx, gy, gw, gh);
+  g = ctx.createLinearGradient(gx, 0, gx + gw, 0);
+  ["#f00", "#ff0", "#0f0", "#0ff", "#00f", "#f0f", "#f00"].forEach((c, i) => g.addColorStop(i / 6, c));
+  ctx.fillStyle = g; ctx.fillRect(gx, gy + gh + 14, gw, 16);
+  ctx.fillStyle = "#cfc7ba"; ctx.fillRect(PANEL.x, PANEL.y + PANEL.h + 40, PANEL.w, 30);
+  ctx.restore();
+  if (dim > 0) { // 패널에 X 표시
+    ctx.save(); ctx.globalAlpha = dim; ctx.strokeStyle = "#b8473a"; ctx.lineWidth = 6; ctx.lineCap = "round";
+    const cx = PANEL.x + PANEL.w / 2, cy = PANEL.y + 140, s = 46 * eout(dim);
+    ctx.beginPath(); ctx.moveTo(cx - s, cy - s); ctx.lineTo(cx + s, cy + s); ctx.moveTo(cx + s, cy - s); ctx.lineTo(cx - s, cy + s); ctx.stroke();
+    ctx.restore();
+  }
+}
+
+// 과일 선화 + 칠 상태(fills: 각 과일 채움 비율 0~1, 색)
+function drawFruits(fills, gray) {
+  FRUITS.forEach((f, i) => {
+    const fl = fills[i];
+    if (fl && fl.k > 0) {
+      ctx.save(); ctx.beginPath(); ctx.arc(f.x, f.y, f.r - 3, 0, 7); ctx.clip();
+      ctx.fillStyle = css(gray ? GRAY : fl.c);
+      ctx.fillRect(f.x - f.r, f.y + f.r - 2 * f.r * fl.k, 2 * f.r, 2 * f.r * fl.k);
+      ctx.restore();
+    }
+    ctx.strokeStyle = "#3a2f2a"; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, 7); ctx.stroke();
+    ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(f.x + 6, f.y - f.r + 4); ctx.quadraticCurveTo(f.x + 14, f.y - f.r - 26, f.x + 30, f.y - f.r - 34); ctx.stroke();
+  });
+}
+
+// SHA Paint 팝업 (app/overlay.html 구조를 단순화)
+function drawPopup(x, y, s, alpha, curCol, cursorPos, history) {
+  if (alpha <= 0) return;
+  const w = 300, h = 270;
+  ctx.save(); ctx.globalAlpha = alpha; ctx.translate(x, y); ctx.scale(s, s);
+  ctx.shadowColor = "rgba(0,0,0,0.35)"; ctx.shadowBlur = 30; ctx.shadowOffsetY = 12;
+  ctx.fillStyle = "#2b2b2f"; rr(0, 0, w, h, 16); ctx.fill(); ctx.shadowColor = "transparent";
+  ctx.fillStyle = "#3a3a3f"; rr(12, 12, w - 24, 172, 8); ctx.fill();
+  ctx.drawImage(FIELD_S.cv, 12, 12);
+  if (cursorPos) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(cursorPos.x, cursorPos.y, 8, 0, 7); ctx.stroke(); }
+  // 명도 바: 바는 그대로, 핸들도 고정(명도 고정의 시각화)
+  const g = ctx.createLinearGradient(12, 0, w - 12, 0); g.addColorStop(0, "#1b1b1f"); g.addColorStop(1, "#f2f2f2");
+  ctx.fillStyle = g; rr(12, 196, w - 24, 12, 6); ctx.fill();
+  ctx.fillStyle = "#fff"; rr(12 + (w - 24) * L0 / 100 - 4, 192, 8, 20, 3); ctx.fill();
+  // 현재 색 + 히스토리
+  ctx.fillStyle = css(curCol); rr(14, 224, 30, 30, 6); ctx.fill();
+  history.forEach((c, i) => { ctx.fillStyle = css(c); rr(58 + i * 28, 230, 20, 20, 5); ctx.fill(); });
+  ctx.restore();
+}
+
+function drawCaption(t) {
+  let cap = null;
+  for (const c of T.caps) if (t >= c.t0 && t <= c.t1) cap = c;
+  if (!cap) return;
+  const a = Math.min(eout(prog(t, cap.t0, cap.t0 + 0.25)), 1 - prog(t, cap.t1 - 0.15, cap.t1));
+  ctx.save(); ctx.globalAlpha = a; ctx.translate(0, (1 - a) * 16);
+  fitText(cap.l1, W / 2, 182, 960, 68, 800, INK);
+  fitText(cap.l2, W / 2, 266, 960, 76, 900, ACCENT);
+  fitText(cap.sub, W / 2, 330, 960, 30, 500, INK_DIM);
+  ctx.restore();
+}
+
+// ---------------- 장면 ----------------
+// 펜 경로 (장면 1): 집 → 패널 → 집 → 패널(반쯤)
+const TRIP = [
+  { t: 0.0, p: HOME }, { t: 0.45, p: HOME }, { t: 1.15, p: PANEL_PT }, { t: 1.45, p: PANEL_PT },
+  { t: 2.1, p: HOME }, { t: 2.35, p: HOME }, { t: 3.0, p: PANEL_PT }, { t: 3.55, p: PANEL_PT }
+];
+function along(keys, t) {
+  for (let i = 0; i < keys.length - 1; i++) {
+    const a = keys[i], b = keys[i + 1];
+    if (t <= b.t) { const k = eio(prog(t, a.t, b.t)); return { x: lerp(a.p.x, b.p.x, k) + Math.sin(k * Math.PI) * -40, y: lerp(a.p.y, b.p.y, k) - Math.sin(k * Math.PI) * 60 }; }
+  }
+  return keys[keys.length - 1].p;
+}
+
+function scene1(t) {
+  drawWindow(0);
+  const fills = [{ k: prog(t, 1.5, 1.95) * 0.5, c: OFF_L[0] }, { k: 0 }, { k: 0 }];
+  drawFruits(fills, false);
+  // 이동 궤적
+  ctx.save(); ctx.strokeStyle = ACCENT; ctx.lineWidth = 4; ctx.setLineDash([12, 12]); ctx.globalAlpha = 0.85;
+  ctx.beginPath();
+  for (let s = 0.45; s <= Math.min(t, 3.55); s += 0.02) { const q = along(TRIP, s); s === 0.45 ? ctx.moveTo(q.x, q.y) : ctx.lineTo(q.x, q.y); }
+  ctx.stroke(); ctx.restore();
+  // 거리 표시
+  const da = prog(t, 2.4, 2.8);
+  if (da > 0) {
+    ctx.save(); ctx.globalAlpha = da; ctx.strokeStyle = INK; ctx.lineWidth = 3;
+    const by = 1086;
+    ctx.beginPath(); ctx.moveTo(HOME.x, by); ctx.lineTo(PANEL_PT.x, by);
+    ctx.moveTo(HOME.x, by - 12); ctx.lineTo(HOME.x, by + 12); ctx.moveTo(PANEL_PT.x, by - 12); ctx.lineTo(PANEL_PT.x, by + 12); ctx.stroke();
+    ctx.fillStyle = INK; rr((HOME.x + PANEL_PT.x) / 2 - 110, by - 62, 220, 48, 24); ctx.fill();
+    ctx.fillStyle = "#fff"; ctx.font = KR(800, 26); ctx.textAlign = "center"; ctx.fillText(T.before, (HOME.x + PANEL_PT.x) / 2, by - 28);
+    ctx.restore();
+  }
+  const p = along(TRIP, t);
+  const press = (t > 1.15 && t < 1.45) || (t > 3.0) ? 1 : 0;
+  drawPen(p.x, p.y, 1, press * (t > 3.0 ? prog(t, 3.0, 3.2) : prog(t, 1.15, 1.3)));
+}
+
+function scene2(t) {
+  drawWindow(prog(t, 3.65, 3.95));
+  drawFruits([{ k: 0.5, c: OFF_L[0] }, { k: 0 }, { k: 0 }], false);
+  // 펜이 집으로 돌아와서 트리거
+  const back1 = eio(prog(t, 3.6, 4.0));
+  const pen = { x: lerp(PANEL_PT.x, HOME.x, back1), y: lerp(PANEL_PT.y, HOME.y, back1) };
+  const popT = 4.15;
+  const ps = t < popT ? 0 : back(prog(t, popT, popT + 0.35));
+  const pa = t < popT ? 0 : clamp(prog(t, popT, popT + 0.15)) * (1 - prog(t, 6.35, 6.55));
+  const px = HOME.x + 16, py = HOME.y + 16;
+  // 팝업 안 필드 좌표 (팝업 원점 기준 12,12)
+  const curP = fieldPos(FIELD_S, 12, 12, CUR);
+  // 펜이 팝업 필드로 아주 짧게 이동 → 현재 색 위치 터치
+  let tip = pen;
+  if (t > 4.7) {
+    const k = eio(prog(t, 4.7, 5.2));
+    tip = { x: lerp(HOME.x, px + curP.x, k), y: lerp(HOME.y, py + curP.y, k) };
+  }
+  if (t > 5.9) { const k = eio(prog(t, 5.9, 6.4)); tip = { x: lerp(px + curP.x, HOME.x, k), y: lerp(py + curP.y, HOME.y, k) }; }
+  drawPopup(px, py, ps, pa, CUR.rgb, curP, PICKS.slice(1, 5).map((c) => c.rgb));
+  // "바로 옆" 거리 표시
+  const la = prog(t, 4.45, 4.7) * (1 - prog(t, 5.7, 5.9));
+  if (la > 0) {
+    ctx.save(); ctx.globalAlpha = la; ctx.fillStyle = ACCENT; rr(HOME.x - 230, HOME.y - 30, 190, 52, 26); ctx.fill();
+    ctx.fillStyle = "#fff"; ctx.font = KR(800, 26); ctx.textAlign = "center"; ctx.fillText(T.after + " →", HOME.x - 135, HOME.y + 5);
+    ctx.restore();
+  }
+  const press = t > popT - 0.15 && t < popT + 0.2 ? 1 : (t > 5.2 && t < 5.7 ? 1 : 0);
+  drawPen(tip.x, tip.y, 1, press);
+}
+
+function scene3(t) {
+  // 확대: 큰 필드 + 같은 명도 색 뽑기 + 흑백 칩
+  const a = eout(prog(t, 6.6, 6.95));
+  ctx.save(); ctx.globalAlpha = a;
+  const fx = (W - FIELD_L.w) / 2, fy = 410;
+  ctx.fillStyle = "#2b2b2f"; rr(fx - 24, fy - 24, FIELD_L.w + 48, FIELD_L.h + 48, 26); ctx.fill();
+  ctx.drawImage(FIELD_L.cv, fx, fy);
+  // 지금 색 표시
+  const cp = fieldPos(FIELD_L, fx, fy, CUR);
+  ctx.strokeStyle = "#fff"; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(cp.x, cp.y, 14, 0, 7); ctx.stroke();
+  const tagA = prog(t, 6.9, 7.2);
+  if (tagA > 0) {
+    ctx.globalAlpha = a * tagA; ctx.fillStyle = "#fff"; rr(cp.x + 22, cp.y - 22, 150, 44, 22); ctx.fill();
+    ctx.fillStyle = INK; ctx.font = KR(800, 24); ctx.textAlign = "left"; ctx.fillText(T.now, cp.x + 40, cp.y + 9);
+    ctx.globalAlpha = a;
+  }
+  ctx.restore();
+  // 색 뽑기: 필드 위 점 → 아래 스와치로 날아감
+  const sw = 118, gap = 26, rowW = PICKS.length * sw + (PICKS.length - 1) * gap, sx = (W - rowW) / 2, sy = 950;
+  PICKS.forEach((col, i) => {
+    const st = 7.3 + i * 0.28, k = eio(prog(t, st, st + 0.5));
+    if (t < st) return;
+    const from = fieldPos(FIELD_L, fx, fy, col);
+    ctx.save(); ctx.globalAlpha = a;
+    ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(from.x, from.y, 9, 0, 7); ctx.fill();
+    ctx.strokeStyle = css(col.rgb); ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(from.x, from.y, 9, 0, 7); ctx.stroke();
+    const x = lerp(from.x - 20, sx + i * (sw + gap), k), y = lerp(from.y - 20, sy, k), s = lerp(40, sw, k);
+    ctx.shadowColor = "rgba(0,0,0,0.18)"; ctx.shadowBlur = 16; ctx.shadowOffsetY = 6;
+    ctx.fillStyle = css(col.rgb); rr(x, y, s, s, 18 * k + 6); ctx.fill();
+    ctx.shadowColor = "transparent";
+    if (i === 0 && k >= 1) { ctx.strokeStyle = INK; ctx.lineWidth = 4; rr(x - 6, y - 6, s + 12, s + 12, 24); ctx.stroke(); }
+    // 흑백 칩 (모두 같은 회색)
+    const gk = eout(prog(t, 9.0 + i * 0.06, 9.35 + i * 0.06));
+    if (gk > 0) {
+      ctx.globalAlpha = a * gk; ctx.fillStyle = css(GRAY); rr(sx + i * (sw + gap), sy + sw + 20, sw, 64, 14); ctx.fill();
+    }
+    ctx.restore();
+  });
+  const la = eout(prog(t, 9.4, 9.7));
+  if (la > 0) {
+    ctx.save(); ctx.globalAlpha = la * a;
+    fitText("= " + T.same, W / 2, sy + sw + 130, 900, 34, 800, INK);
+    ctx.restore();
+  }
+}
+
+function scene4(t) {
+  // 결과: 조화로운 같은 명도 색으로 칠한 그림 → 흑백 토글
+  drawWindow(1);
+  const k = (s) => eio(prog(t, s, s + 0.35));
+  const fills = [{ k: k(10.2), c: PICKS[0].rgb }, { k: k(10.4), c: PICKS[4].rgb }, { k: k(10.6), c: PICKS[2].rgb }];
+  const gray = t > 11.05 && t < 11.5;
+  drawFruits(fills, gray);
+  if (gray) { ctx.fillStyle = INK; rr(CANVAS.x + 20, CANVAS.y + 20, 150, 44, 22); ctx.fill();
+    ctx.fillStyle = "#fff"; ctx.font = KR(800, 22); ctx.textAlign = "center"; ctx.fillText("GRAY", CANVAS.x + 95, CANVAS.y + 50); }
+}
+
+function endCard(t) {
+  const a = eout(prog(t, 11.6, 12.0));
+  ctx.save(); ctx.globalAlpha = a;
+  ctx.fillStyle = PAPER; ctx.fillRect(0, 0, W, H);
+  // 같은 명도 링
+  const cx = W / 2, cy = 470, R = 170;
+  for (let d = 0; d < 360; d += 1) {
+    const c = lab(d, 0.85).rgb;
+    ctx.fillStyle = css(c); ctx.beginPath(); ctx.arc(cx, cy, R, (d - 90) * Math.PI / 180, (d - 88.6) * Math.PI / 180); ctx.arc(cx, cy, R - 34, (d - 88.6) * Math.PI / 180, (d - 90) * Math.PI / 180, true); ctx.fill();
+  }
+  ctx.fillStyle = INK; ctx.font = "700 74px Serif, serif"; ctx.textAlign = "center"; ctx.fillText("SHA", cx, cy + 26);
+  ctx.font = "700 108px Serif, serif"; ctx.fillText("SHA Paint", W / 2, 790);
+  richText(T.tag, W / 2, 870, 46, 800, INK, ACCENT);
+  fitText(T.meta, W / 2, 935, 900, 32, 500, INK_DIM);
+  const ba = eout(prog(t, 12.3, 12.7));
+  ctx.globalAlpha = a * ba;
+  ctx.font = KR(800, 40); const bw = ctx.measureText(T.cta).width + 110;
+  ctx.fillStyle = ACCENT; rr(W / 2 - bw / 2, 1010, bw, 96, 48); ctx.fill();
+  ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.fillText(T.cta, W / 2, 1072);
+  ctx.restore();
+}
+
+function hueStrip(y) {
+  const g = ctx.createLinearGradient(0, 0, W, 0);
+  ["#f34b8e", "#f45351", "#d4711e", "#a58920", "#2d9f59", "#3099a4", "#3890dd", "#887cf1", "#ec36e1"].forEach((c, i, a) => g.addColorStop(i / (a.length - 1), c));
+  ctx.fillStyle = g; ctx.fillRect(0, y, W, 10);
+}
+
+function renderAt(t) {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = PAPER; ctx.fillRect(0, 0, W, H);
+  hueStrip(0);
+  ctx.fillStyle = INK_DIM; ctx.font = "700 30px Serif, serif"; ctx.textAlign = "center"; ctx.fillText("SHA Paint", W / 2, 76);
+  if (t < 3.6) scene1(t);
+  else if (t < 6.6) scene2(t);
+  else if (t < 10.2) scene3(t);
+  else scene4(t);
+  drawCaption(t);
+  if (t < 11.6) { ctx.fillStyle = "#9a9187"; ctx.font = KR(500, 20); ctx.textAlign = "center"; ctx.fillText(T.disc, W / 2, 1300); }
+  if (t >= 11.6) endCard(t);
+  hueStrip(H - 10);
+}
+
+window.SFX_CUES = [
+  { t: 0.5, type: "whoosh" }, { t: 1.2, type: "click" }, { t: 1.5, type: "scribble", dur: 0.45 },
+  { t: 1.55, type: "whoosh", vol: 0.6 }, { t: 2.45, type: "whoosh" }, { t: 3.05, type: "click" },
+  { t: 3.65, type: "tick" }, { t: 4.15, type: "pop" }, { t: 5.2, type: "click", vol: 0.7 },
+  { t: 6.65, type: "swell" }, ...[0, 1, 2, 3, 4, 5].map((i) => ({ t: 7.3 + i * 0.28, type: "tick", vol: 0.8 })),
+  { t: 9.05, type: "chime", vol: 0.6 }, { t: 10.2, type: "scribble", dur: 0.9 }, { t: 11.05, type: "tick" },
+  { t: 11.65, type: "swell" }, { t: 12.35, type: "chime" }
+];
+window.AD_INFO = { DURATION, W, H, LANG };
+window.renderAt = renderAt;
+
+Promise.all([document.fonts.load(KR(800, 40)), document.fonts.load(KR(500, 20)), document.fonts.load("700 40px Serif")]).then(() => {
+  FIELD_S = makeField(276, 172);
+  FIELD_L = makeField(620, 440);
+  renderAt(0);
+  window.__adReady = true;
+  if (!RENDER) {
+    const t0 = performance.now();
+    const loop = () => { renderAt(((performance.now() - t0) / 1000) % DURATION); requestAnimationFrame(loop); };
+    loop();
+  }
+});
+})();
+</script>
+</body>
+</html>

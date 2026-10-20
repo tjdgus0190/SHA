@@ -27,5 +27,29 @@ const found = [...psBody.matchAll(/\$\{([^}]*)\}/g)].map((m) => m[1].trim());
 const unexpected = found.filter((x) => !allowed.has(x));
 if (unexpected.length) bad('com-bridge.js 예상치 못한 ${...}: ' + JSON.stringify([...new Set(unexpected)]) + '  (PowerShell 변수는 $($var) 사용)');
 else ok('com-bridge.js ${...} 스캔 (' + found.length + '개, 모두 허용 목록)');
+
+// 패키징 누락 검사: 인스톨러에 들어가는 파일 목록(build.files)에 앱 런타임
+// 파일이 전부 들어 있는지. 빠지면 설치판에서만 require/loadFile이 실패한다.
+const pkg = JSON.parse(fs.readFileSync(path.join(appDir, 'package.json'), 'utf8'));
+const shipped = new Set(pkg.build.files);
+const runtime = fs.readdirSync(appDir).filter((f) => /\.(js|html|css)$/.test(f));
+const missing = runtime.filter((f) => !shipped.has(f));
+if (missing.length) bad('package.json build.files 누락: ' + missing.join(', '));
+else ok('package.json build.files에 런타임 파일 ' + runtime.length + '개 모두 포함');
+for (const r of pkg.build.extraResources || []) {
+  if (fs.existsSync(path.join(appDir, r.from))) ok('extraResources 존재: ' + r.from);
+  else bad('extraResources 없음: ' + r.from);
+}
+if (pkg.build.nsis && pkg.build.nsis.include && !fs.existsSync(path.join(appDir, pkg.build.nsis.include))) bad('nsis.include 없음: ' + pkg.build.nsis.include);
+
+// 출시 준비 경고(실패로 치지 않음)
+const lic = fs.readFileSync(path.join(appDir, 'licensing.js'), 'utf8');
+const nsh = fs.readFileSync(path.join(appDir, 'build', 'installer.nsh'), 'utf8');
+const pidJs = (lic.match(/const GUMROAD_PRODUCT_ID = "([^"]*)";/) || [])[1];
+const pidNsh = (nsh.match(/!define SHA_GUMROAD_PRODUCT_ID "([^"]*)"/) || [])[1];
+if (pidJs !== pidNsh) bad(`상품 ID 불일치: licensing.js="${pidJs}" / installer.nsh="${pidNsh}"`);
+else ok('licensing.js와 installer.nsh의 Gumroad 상품 ID 일치');
+if (/const GUMROAD_PRODUCT_ID = "";/.test(lic)) console.log('WARN licensing.js GUMROAD_PRODUCT_ID가 비어 있음 — 라이선스 확인이 꺼진 개발 모드. 출시 빌드 전에 설정 필요');
+
 console.log(fail ? `\n${fail}건 실패` : '\n전부 통과');
 process.exit(fail ? 1 : 0);

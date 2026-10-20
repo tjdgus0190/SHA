@@ -3,3 +3,8 @@ dist/
 *.log
 sha-paint-log.txt
 .DS_Store
+
+# 렌더링 중간 파일 / 원본 압축본
+*.wav
+docs/ad-video/real-demo/filter-*.txt
+sha-paint-project.zip

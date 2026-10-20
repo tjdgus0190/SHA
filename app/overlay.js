@@ -340,6 +340,8 @@ document.addEventListener("DOMContentLoaded", () => {
   wireField();
   wireLightnessSlider();
   wireFullGamutToggle();
+  document.getElementById("closeBtn").addEventListener("click", () => window.overlayAPI.closePopup());
+  window.overlayAPI.onHistory((history) => renderHistory(history));
 
   // 색 적용이 실패했을 때(COM 브릿지 등) 조용히 넘어가지 않고 짧게
   // 눈에 띄는 경고를 띄운다 — 신뢰도 문제. 연속으로 여러 번 실패해도
