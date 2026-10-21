@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>SHA Paint global store images</title>
+<!--
+  Gumroad(글로벌)용 이미지. render-global-images.js가 ?mode=로 캡처한다.
+    cover   1280x720  원본(한 톤) → 같은 명도로 색 추가 + 흑백 동일 (메인 메시지)
+    ui      1280x720  영어 앱 화면(설정 창 + 상태 패널)
+    thumb   600x600   썸네일
+  그림: docs/ad-video/portrait (사용자 제공 그림을 SHA Paint의 L* 계산으로 색 추가)
+-->
+<style>
+  @font-face { font-family: "KR"; src: local("Noto Sans KR"), local("NotoSansKR"), url("file:///C:/Windows/Fonts/NotoSansKR-VF.ttf"); font-weight: 100 900; }
+  @font-face { font-family: "Serif"; src: local("Noto Serif Bold"), local("NotoSerif-Bold"), url("file:///C:/Windows/Fonts/NotoSerif-Bold.ttf"); font-weight: 700; }
+  :root { --bg: #1c1a1f; --raised: #242128; --ink: #f2ede4; --dim: #a79f97; --faint: #75706b; --gold: #e8a33d; --green: #3fae72; --line: rgba(242,237,228,0.12); }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); }
+  body { font-family: "KR", sans-serif; color: var(--ink); overflow: hidden; }
+  .stage { position: relative; overflow: hidden; background: radial-gradient(ellipse 60% 70% at 78% 45%, rgba(232,163,61,0.08), transparent), var(--bg); }
+  .strip { position: absolute; left: 0; right: 0; bottom: 0; height: 8px;
+    background: linear-gradient(90deg,#f34b8e,#f45351,#d4711e,#a58920,#709821,#2d9f59,#2d9b8a,#3099a4,#3890dd,#887cf1,#ec36e1,#f34b8e); }
+  .eyebrow { font-size: 17px; font-weight: 700; letter-spacing: 3px; color: var(--dim); }
+  .wordmark { font-family: "Serif", serif; font-weight: 700; line-height: 1; letter-spacing: -1px; }
+  .headline { font-weight: 900; line-height: 1.12; letter-spacing: -0.5px; }
+  .headline em { font-style: normal; color: var(--gold); }
+  .sub { color: var(--dim); line-height: 1.5; }
+  .chips { display: flex; gap: 10px; flex-wrap: wrap; }
+  .chip { border: 1px solid var(--line); background: rgba(255,255,255,0.03); border-radius: 999px; padding: 7px 15px; font-size: 16px; font-weight: 700; }
+  .card { position: absolute; border-radius: 14px; overflow: hidden; box-shadow: 0 18px 40px rgba(0,0,0,0.45); border: 1px solid var(--line); }
+  .card img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .tag { position: absolute; left: 12px; top: 12px; font-size: 14px; font-weight: 800; padding: 5px 11px; border-radius: 999px; background: rgba(20,19,23,0.85); }
+  .tag.gold { background: var(--gold); color: #241a08; }
+  .arrow { position: absolute; font-size: 34px; color: var(--gold); font-weight: 900; }
+  .gray-row { position: absolute; display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 12px; background: var(--raised); border: 1px solid var(--line); }
+  .gray-row img { width: 54px; height: 63px; object-fit: cover; border-radius: 6px; }
+  .gray-row .eq { font-size: 22px; font-weight: 900; color: var(--dim); }
+  .gray-row .ok { font-size: 15px; font-weight: 800; color: var(--green); }
+  .win { position: absolute; border-radius: 10px; overflow: hidden; box-shadow: 0 18px 44px rgba(0,0,0,0.55); border: 1px solid rgba(255,255,255,0.08); }
+  .win img { display: block; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const P = new URLSearchParams(location.search);
+const mode = P.get("mode") || "cover";
+const A = "assets/";
+const views = {
+  cover: `
+    <div class="stage" style="width:1280px;height:720px">
+      <div style="position:absolute;left:84px;top:120px;width:560px">
+        <div class="eyebrow">PHOTOSHOP PLUGIN · WINDOWS</div>
+        <div class="wordmark" style="font-size:92px;margin-top:22px">SHA Paint</div>
+        <div class="headline" style="font-size:52px;margin-top:26px">Bold color.<br><em>Same values.</em></div>
+        <div class="sub" style="font-size:19px;margin-top:20px;width:500px">A same-value palette: change hue and chroma while the lightness (L*) stays locked — so the form never goes flat.</div>
+        <div class="chips" style="margin-top:28px">
+          <span class="chip">Value locked</span><span class="chip">Form stays intact</span><span class="chip">English UI</span>
+        </div>
+      </div>
+      <div class="card" style="left:690px;top:70px;width:236px;height:277px"><img src="${A}portrait-original.jpg"><span class="tag">Original</span></div>
+      <div class="arrow" style="left:938px;top:180px">→</div>
+      <div class="card" style="left:980px;top:70px;width:236px;height:277px;border-color:rgba(232,163,61,0.6)"><img src="${A}portrait-same-value.jpg"><span class="tag gold">Same-value color</span></div>
+      <div class="card" style="left:760px;top:366px;width:386px;height:226px"><img src="${A}portrait-same-value.jpg" style="object-position:50% 30%"></div>
+      <div class="gray-row" style="left:760px;top:606px;width:386px;justify-content:center">
+        <img src="${A}portrait-gray.jpg"><span class="eq">=</span><img src="${A}portrait-gray.jpg">
+        <span class="ok">✓ Identical in grayscale</span>
+      </div>
+      <div class="strip"></div>
+    </div>`,
+  ui: `
+    <div class="stage" style="width:1280px;height:720px">
+      <div style="position:absolute;left:84px;top:150px;width:470px">
+        <div class="eyebrow">NEW IN 1.1</div>
+        <div class="headline" style="font-size:54px;margin-top:20px">Now in<br><em>English</em></div>
+        <div class="sub" style="font-size:19px;margin-top:22px">The installer, menus and settings follow your Windows language — or pick English / 한국어 yourself. The Photoshop panel follows Photoshop's language.</div>
+        <div class="chips" style="margin-top:28px"><span class="chip">Windows 10/11</span><span class="chip">Photoshop 2023+</span></div>
+      </div>
+      <div class="win" style="left:560px;top:40px;transform:scale(0.98);transform-origin:top left"><img src="${A}ui-settings-en.png"></div>
+      <div class="win" style="left:952px;top:470px;border-radius:14px"><img src="${A}ui-panel-en.png" style="width:300px"></div>
+      <div class="strip"></div>
+    </div>`,
+  thumb: `
+    <div class="stage" style="width:600px;height:600px">
+      <img src="${A}portrait-same-value.jpg" style="position:absolute;left:0;top:-30px;width:600px;height:704px;object-fit:cover">
+      <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(28,26,31,0) 40%,rgba(28,26,31,0.92) 78%)"></div>
+      <div style="position:absolute;left:0;right:0;bottom:44px;text-align:center">
+        <div class="wordmark" style="font-size:78px">SHA Paint</div>
+        <div class="headline" style="font-size:30px;margin-top:12px">Bold color. <em>Same values.</em></div>
+      </div>
+      <div class="strip"></div>
+    </div>`
+};
+document.getElementById("root").innerHTML = views[mode];
+Promise.all([document.fonts.ready, ...[...document.images].map((i) => i.decode().catch(() => {}))]).then(() => { window.__ready = true; });
+</script>
+</body>
+</html>

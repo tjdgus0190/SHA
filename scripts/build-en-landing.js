@@ -254,7 +254,7 @@ const body = `<body>
       </div>
       <div class="faq-item">
         <h4>Is the app in English?</h4>
-        <p>The palette popup is almost entirely visual, but the installer, menus, and settings are currently in Korean. The FAQ entries below walk you through the screens you'll need.</p>
+        <p>Yes. Since version 1.1, the installer, menus and settings follow your Windows language (English or Korean), and the Photoshop panel follows Photoshop's language. You can also switch the app language in Settings or from the tray menu (Language / 언어).</p>
       </div>
       <div class="faq-item">
         <h4>Do I need to keep a panel open in Photoshop?</h4>

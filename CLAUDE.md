@@ -7,7 +7,7 @@ Photoshop 오버레이 팔레트. Lab L*(명도)를 고정한 채 색상/채도�
 - **판매 중**: Gumroad `https://tjdgus76.gumroad.com/l/vutuls` ($10, 1회 결제). 결제 바로가기 링크는 끝에 `?wanted=true`.
   - 라이선스 키: Gumroad License API. 상품 ID `Z-z4Harnz0sMKG_7200QXw==` (`app/licensing.js`와 `app/build/installer.nsh` 두 곳 — `verify.js`가 일치 검사). 실제 구매 키로 활성화 성공 확인됨(2026-10-19).
   - 좌석(seat) 옵션 켜짐 → 활성화 PC 수 = 좌석 수 × 3.
-- **배포 파일**: `app/dist/SHAPaintSetup-1.0.0.exe` (저장소에 없음, 빌드로 생성). Gumroad에 업로드된 것이 출시본.
+- **배포 파일**: `app/dist/SHAPaintSetup-1.1.0.exe` (저장소에 없음, 빌드로 생성 — 앱 버전은 `app/package.json` version). Gumroad에 업로드된 것이 출시본. 1.1.0(영어 지원)은 클라우드에서 wine으로 빌드해 사용자에게 전달(2026-10-21), 업로드는 사용자가 함.
 - **랜딩페이지**: Netlify가 GitHub 저장소에 연결됨 → `main`에 push하면 자동 배포(`netlify.toml`이 `site/`를 배포 폴더로 지정). `site/index.html`(한국어), `site/en/index.html`(영문, `node scripts/build-en-landing.js`로 한국어 페이지 스타일을 가져와 생성). 구매 버튼은 전부 Gumroad 결제 링크. 메시지 중심은 **명도 고정·입체감 유지**(히어로/비교 데모는 colorMath 계산값으로 칠한 구 + 흑백 구 CSS 애니메이션), 펜 옆 팝업은 보조 기능으로 소개. 데모 영상 섹션은 `site/media/sha-paint-portrait-{ko,en}.mp4`(`docs/ad-video/portrait/` 16:9 웹 압축본) + 장면 버튼.
 - **광고/마케팅 에셋** (`docs/`):
   - `docs/ad-video/` 15초 모션그래픽(9:16·16:9, 한/영) — 인스타그램 광고로 집행 중(9:16 한국어)
@@ -15,7 +15,7 @@ Photoshop 오버레이 팔레트. Lab L*(명도)를 고정한 채 색상/채도�
   - `docs/ad-video/v3/` 인스타 릴스용 15초 9:16(한/영) — **메인 기능(명도 고정·동명도 어울리는 색·입체감 유지) 중심**. 렌더 `node docs/ad-video/v3/render-v3.js [--lang en]`
   - `docs/ad-video/portrait/` 인물화 15초(9:16·16:9, 한/영) — 한 톤 그림에 펜으로 **같은 명도의 화려한 색**을 5획 칠함 → 원본과 슬라이드 비교 → 흑백은 원본과 동일. "보통 피커는 얼룩" 내용은 자막 한 줄로만(사용자 요청). 그림은 사용자 제공. `python lab.py` → `node render-portrait.js`
   - `docs/ad-video/real-demo/` 실제 Photoshop+SHA Paint 화면 녹화 편집본(36초, 마우스 자동조작으로 촬영)
-  - `docs/store/` Gumroad 표지/썸네일(한/영), 상품 설명(`gumroad-description.md`, 영+한), 영문 카피 검토 메모
+  - `docs/store/` 상품 설명 `gumroad-description.md`(글로벌 v1.1: 영어 우선+한국어, 상품명/태그/기존 구매자 업데이트 메일 포함), `docs/store/global/` 글로벌 표지·UI·썸네일(인물화 동명도 전후 + 영어 앱 화면, `render-global-images.js`), 구버전 표지/썸네일(한/영), 영문 카피 검토 메모
   - `docs/brand/instagram/` 인스타 프로필 사진, `docs/pricing.md`, `docs/sales-channels.md`
 - **앱 버전**: `app/README.md` 맨 위(최신 v9.0 — 한국어/영어 화면, 아직 빌드·실기 확인 전. 출시본은 v8.9). UXP 플러그인 1.1.0(ID `com.shastudio.shapaint`).
 - **사용자 결정 사항**: 코드 서명 안 함(SmartScreen 경고는 FAQ로 안내). 랜딩/광고에 약속성 문구 금지(평생 업데이트, Mac 예정, 무조건 환불 등). Mac 버전은 보류.
@@ -76,10 +76,10 @@ python scripts/pack-plugin.py       # uxp-plugin 수정 후 번들 .ccx 재패�
 실제 펜/Photoshop 동작은 자동 검증 불가 — **검증한 것과 못한 것을 구분해서 보고**.
 
 ## 빌드 (Windows 인스톨러)
-- `cd app && npm install && npx electron-builder --win --x64` → `app/dist/SHAPaintSetup-1.0.0.exe`
+- `cd app && npm install && npx electron-builder --win --x64` → `app/dist/SHAPaintSetup-<version>.exe`
 - 이 PC 첫 빌드 때 winCodeSign 캐시 압축 해제가 심볼릭 링크 권한으로 실패함 → `%LOCALAPPDATA%\electron-builder\Cache\winCodeSign\winCodeSign-2.6.0`에 7za로 `-xr!darwin` 제외 후 직접 풀면 해결.
 - 빌드 후 변경점은 `app/README.md` 맨 위에 버전 항목 추가.
-- (클라우드/Linux 확인용) i386 아키텍처 추가 후 `apt install wine64 wine32:i386`, 새 `WINEPREFIX`로 `npx electron-builder --win --x64`하면 인스톨러가 만들어진다(끝의 `reading 'channel'` 오류는 저장소 감지 실패로 생기는 업데이트 정보 단계라 무시). Xvfb+xdotool로 설치 화면 캡처 가능. 출시본은 Windows PC에서 빌드.
+- (클라우드/Linux) **주의: Linux에서 그냥 `npm install`하면 `@miniben90/x-win`의 Windows 바이너리가 빠진 인스톨러가 나온다**(활성 창 감지 실패). 저장소 밖 복사본에서 `npm ci --os=win32 --cpu=x64` 후 빌드하고, `dist/win-unpacked`에 `x-win-win32-x64-msvc`가 있는지 확인. i386 아키텍처 추가 후 `apt install wine64 wine32:i386`, 새 `WINEPREFIX`로 `npx electron-builder --win --x64`하면 인스톨러가 만들어진다(끝의 `reading 'channel'` 오류는 저장소 감지 실패로 생기는 업데이트 정보 단계라 무시). Xvfb+xdotool로 설치 화면 캡처 가능. 출시본은 Windows PC에서 빌드.
 
 ## 영상/이미지 렌더링 (새 PC 셋업)
 렌더 도구는 저장소에 없다. 프로젝트 밖 아무 폴더에 설치하고 경로를 환경변수로 준다:
