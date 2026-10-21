@@ -70,19 +70,19 @@ const body = `<body>
 
 <section class="divider-top video-section" id="demo">
   <div class="wrap">
-    <h2 class="eyebrow-free-title">More color on a one-tone painting, nothing out of place</h2>
-    <p class="section-lead">We added violet shadows, a warm flush, golden highlights and teal bounce light to a face painted in a single brown tone. Colors from a normal picker each have their own value and look pasted on; adding only color at each spot's own value blends right into the painting.</p>
+    <h2 class="eyebrow-free-title">Same value, and a one-tone painting comes alive</h2>
+    <p class="section-lead">We added violet shadows, a magenta flush, golden highlights, cobalt bounce light and hot-pink hair to a face painted in a single brown tone. Every color sits at that spot's own value (L*), so even this much color blends naturally, and in grayscale it's identical to the original.</p>
 
     <div class="video-frame">
-      <video id="demo-video" muted loop playsinline preload="metadata" poster="../media/sha-paint-portrait-en-poster.jpg" aria-label="Comparison of adding colors at the same value versus with a normal picker on a one-tone portrait">
+      <video id="demo-video" muted loop playsinline preload="metadata" poster="../media/sha-paint-portrait-en-poster.jpg" aria-label="Adding bold colors at the same value to a one-tone portrait">
         <source src="../media/sha-paint-portrait-en.mp4" type="video/mp4">
       </video>
     </div>
     <ol class="chapters" id="demo-chapters">
-      <li><button type="button" data-t="0"><span class="n">1</span>A flat, one-tone face<span class="bar"></span></button></li>
-      <li><button type="button" data-t="2.6"><span class="n">2</span>Normal picker: looks pasted<span class="bar"></span></button></li>
-      <li><button type="button" data-t="6.0"><span class="n">3</span>Add color at the same value<span class="bar"></span></button></li>
-      <li><button type="button" data-t="10.45"><span class="n">4</span>Grayscale matches the original<span class="bar"></span></button></li>
+      <li><button type="button" data-t="0"><span class="n">1</span>One-tone original<span class="bar"></span></button></li>
+      <li><button type="button" data-t="2.1"><span class="n">2</span>Painting same-value colors<span class="bar"></span></button></li>
+      <li><button type="button" data-t="8.5"><span class="n">3</span>Compare with the original<span class="bar"></span></button></li>
+      <li><button type="button" data-t="10.1"><span class="n">4</span>Grayscale matches the original<span class="bar"></span></button></li>
     </ol>
     <p class="video-note">A simulation made with SHA Paint's lightness (L*) math. The app itself is a palette that lets you pick colors at the same value; it doesn't paint colors onto your image automatically. Click a step to jump to it.</p>
   </div>

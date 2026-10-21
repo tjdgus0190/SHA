@@ -13,7 +13,7 @@ Photoshop 오버레이 팔레트. Lab L*(명도)를 고정한 채 색상/채도�
   - `docs/ad-video/` 15초 모션그래픽(9:16·16:9, 한/영) — 인스타그램 광고로 집행 중(9:16 한국어)
   - `docs/ad-video/v2/` 인스타 피드용 15초 4:5(밝은 톤, 한/영)
   - `docs/ad-video/v3/` 인스타 릴스용 15초 9:16(한/영) — **메인 기능(명도 고정·동명도 어울리는 색·입체감 유지) 중심**. 렌더 `node docs/ad-video/v3/render-v3.js [--lang en]`
-  - `docs/ad-video/portrait/` 인물화 15초(9:16·16:9, 한/영) — 한 톤 그림에 **같은 명도로 색을 더해 이질감 없이 다채롭게**(보통 피커는 얼룩처럼 뜸). 그림은 사용자 제공. `python lab.py` → `node render-portrait.js`
+  - `docs/ad-video/portrait/` 인물화 15초(9:16·16:9, 한/영) — 한 톤 그림에 펜으로 **같은 명도의 화려한 색**을 5획 칠함 → 원본과 슬라이드 비교 → 흑백은 원본과 동일. "보통 피커는 얼룩" 내용은 자막 한 줄로만(사용자 요청). 그림은 사용자 제공. `python lab.py` → `node render-portrait.js`
   - `docs/ad-video/real-demo/` 실제 Photoshop+SHA Paint 화면 녹화 편집본(36초, 마우스 자동조작으로 촬영)
   - `docs/store/` Gumroad 표지/썸네일(한/영), 상품 설명(`gumroad-description.md`, 영+한), 영문 카피 검토 메모
   - `docs/brand/instagram/` 인스타 프로필 사진, `docs/pricing.md`, `docs/sales-channels.md`

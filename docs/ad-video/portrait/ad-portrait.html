@@ -4,12 +4,12 @@
 <meta charset="utf-8" />
 <title>SHA Paint Portrait Ad</title>
 <!--
-  한 톤(갈색)으로 칠한 얼굴에 포인트 색을 더하는 15초 영상: "색은 다채롭게, 같은 명도라 이질감은 없이".
-    0.0–2.6   원본(한 톤) — 밋밋함
-    2.6–6.0   보통 피커로 고른 색을 얹음 → 얼룩처럼 뜸, 흑백으로 넘기면 명도가 달라진 곳이 빨갛게
-    6.0–10.4  SHA Paint: 그 자리 명도(L*) 그대로 보라 그림자 → 붉은 혈색 → 금빛 하이라이트 → 청록 반사광
-    10.4–12.2 흑백으로 넘겨도 원본과 같은 명암
-    12.2–15   엔드카드(원본/완성 비교)
+  한 톤(갈색)으로 칠한 얼굴에 같은 명도로 화려한 색을 더하는 15초 영상: "아무리 화려해도 같은 명도라 자연스럽게".
+    0.0–2.0   원본(한 톤)
+    2.0–8.4   펜이 SHA Paint 팝업에서 색을 찍어 5획으로 칠함(보라 그림자, 마젠타 혈색, 금빛 하이라이트, 코발트 반사광, 핫핑크 머리카락)
+    8.5–10.0  원본 ↔ 완성 슬라이드 비교
+    10.1–12.2 흑백으로 넘겨도 원본과 같은 명암
+    12.2–15   엔드카드
   - 이미지: frames-src/*.png (python lab.py 로 생성). 색 계산은 app/colorMath.js와 같은 식.
   - ?ar=16x9 가로(사이트용), ?lang=en 영문, ?render=1 이면 window.__start() 후 renderAt(t)로 프레임 렌더
 -->
@@ -42,30 +42,30 @@ const css = (c) => `rgb(${c.r},${c.g},${c.b})`;
 const T = {
   ko: {
     caps: [
-      { t0: 0.1, t1: 2.55, l1: "한 톤으로 칠한 얼굴,", l2: "조금 밋밋하죠?", sub: "색을 더 넣어 포인트를 주고 싶을 때" },
-      { t0: 2.65, t1: 5.95, l1: "보통 피커로 색을 얹으면", l2: "얼룩처럼 떠 보입니다", sub: "빨간 곳 = 명도(L*)가 달라져 형태가 깨진 자리" },
-      { t0: 6.05, t1: 8.35, l1: "SHA Paint는 그 자리 명도 그대로", l2: "색만 더합니다", sub: "보라 그림자 · 붉은 혈색 · 금빛 하이라이트" },
-      { t0: 8.45, t1: 10.35, l1: "색은 다채롭게,", l2: "이질감은 없이", sub: "같은 명도라 그림에 자연스럽게 녹아듭니다" },
-      { t0: 10.45, t1: 12.15, l1: "흑백으로 보면", l2: "원래 그림과 똑같습니다", sub: "입체감은 그대로, 색감만 풍부해졌습니다" }
+      { t0: 0.1, t1: 1.95, l1: "한 톤으로 칠한 얼굴에", l2: "색을 더해볼게요", sub: "SHA Paint 동명도 팔레트로" },
+      { t0: 2.05, t1: 5.15, l1: "그 자리 명도는 그대로,", l2: "색만 화려하게", sub: "보라 그림자 · 마젠타 혈색 · 금빛 하이라이트" },
+      { t0: 5.25, t1: 8.4, l1: "같은 명도라서", l2: "화려해도 자연스럽게", sub: "보통 피커였다면 얼룩처럼 떴을 색들입니다" },
+      { t0: 8.5, t1: 10.0, l1: "원본과 비교하면", l2: "완전히 다른 그림", sub: "명암은 그대로, 색만 달라졌습니다" },
+      { t0: 10.1, t1: 12.15, l1: "흑백으로 보면", l2: "원본과 똑같습니다", sub: "입체감은 그대로 — 평균 명도 차이 0.1 미만" }
     ],
-    gray: "흑백", broken: "명암 달라짐", kept: "명암 그대로", popup: "L* 고정",
-    strokes: ["그림자 + 보라", "볼·귀 + 붉은 기", "하이라이트 + 금빛", "반사광 + 청록"],
+    gray: "흑백", kept: "명암 그대로",
+    strokes: ["그림자 + 보라", "혈색 + 마젠타", "하이라이트 + 금빛", "반사광 + 코발트", "머리카락 + 핫핑크"],
     before: "원본", after: "색 추가",
-    tag: "<같은 명도>라서, 어떤 색도 자연스럽게", meta: "$10 · 1회 결제 · Photoshop · Windows",
+    tag: "<같은 명도>라서, 화려해도 자연스럽게", meta: "$10 · 1회 결제 · Photoshop · Windows",
     cta: "프로필 링크에서 구매", disc: "SHA Paint의 명도(L*) 계산으로 색을 더한 연출 화면"
   },
   en: {
     caps: [
-      { t0: 0.1, t1: 2.55, l1: "A face painted in one tone,", l2: "a little flat?", sub: "When you want more color for impact" },
-      { t0: 2.65, t1: 5.95, l1: "Add colors with a normal picker", l2: "and they look pasted on", sub: "Red = where the lightness (L*) changed and broke the form" },
-      { t0: 6.05, t1: 8.35, l1: "SHA Paint keeps each spot's value", l2: "and adds only color", sub: "Violet shadows · warm flush · golden highlights" },
-      { t0: 8.45, t1: 10.35, l1: "More colorful,", l2: "never out of place", sub: "Same value, so it blends right into the painting" },
-      { t0: 10.45, t1: 12.15, l1: "In grayscale it's", l2: "identical to the original", sub: "Same depth, richer color" }
+      { t0: 0.1, t1: 1.95, l1: "A face painted in one tone.", l2: "Let's add color", sub: "With SHA Paint's same-value palette" },
+      { t0: 2.05, t1: 5.15, l1: "Keep each spot's value,", l2: "go bold with color", sub: "Violet shadows · magenta flush · golden highlights" },
+      { t0: 5.25, t1: 8.4, l1: "Same value, so even bold colors", l2: "look natural", sub: "With a normal picker these would look pasted on" },
+      { t0: 8.5, t1: 10.0, l1: "Next to the original,", l2: "a whole new painting", sub: "Same light and shadow, only the color changed" },
+      { t0: 10.1, t1: 12.15, l1: "In grayscale it's", l2: "identical to the original", sub: "Same depth — mean value difference under 0.1" }
     ],
-    gray: "Grayscale", broken: "Values shifted", kept: "Values kept", popup: "L* locked",
-    strokes: ["Shadow + violet", "Cheeks + warm red", "Highlight + gold", "Bounce + teal"],
+    gray: "Grayscale", kept: "Values kept",
+    strokes: ["Shadow + violet", "Flush + magenta", "Highlight + gold", "Bounce + cobalt", "Hair + hot pink"],
     before: "Original", after: "Color added",
-    tag: "<Same value>, any color fits", meta: "$10 · One-time · Photoshop · Windows",
+    tag: "<Same value>, bold yet natural", meta: "$10 · One-time · Photoshop · Windows",
     cta: "Shop via link in bio", disc: "Simulated: colors added with SHA Paint's lightness (L*) math"
   }
 }[LANG];
@@ -123,7 +123,7 @@ const LY = WIDE ? L16 : L9;
 
 // ---------------- 이미지 ----------------
 const IMG = {};
-const NAMES = ["orig", "gray", "naive", "naive-diff", "sha-1", "sha-2", "sha-3", "sha-4"];
+const NAMES = ["orig", "gray", "sha-1", "sha-2", "sha-3", "sha-4", "sha-5"];
 function load(n) { return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error("frames-src/" + n + ".png 없음 — python lab.py 먼저 실행")); i.src = "frames-src/" + n + ".png"; IMG[n] = i; }); }
 
 // 붓질처럼 대각선으로 쓸고 지나가는 전환(부드러운 경계)
@@ -201,26 +201,20 @@ function drawPen(x, y, alpha = 1, press = 0) {
   if (press > 0) { ctx.save(); ctx.globalAlpha = alpha * press * 0.6; ctx.strokeStyle = GOLD; ctx.lineWidth = 3;
     ctx.beginPath(); ctx.arc(x, y, 12 + 16 * press, 0, 7); ctx.stroke(); ctx.restore(); }
 }
-// 펜 위치: 보통 피커 장면은 얼굴을 쓱쓱, SHA 장면은 팝업 ↔ 얼굴 왕복
+// 펜 위치: 획마다 팝업 ↔ 얼굴 왕복
 function penAt(t) {
   const r = LY.img;
-  if (t >= 2.45 && t < 4.05) {
-    const start = toScr(NAIVE.path[0], r), endP = toScr(NAIVE.path[NAIVE.path.length - 1], r);
-    if (t < NAIVE.t0) { const k = eio(prog(t, 2.45, NAIVE.t0)); return { x: lerp(W - 40, start.x, k), y: lerp(r.y + 120, start.y, k), a: prog(t, 2.45, 2.6), press: 0 }; }
-    if (t < NAIVE.t1) { const q = toScr(pointAt(NAIVE.path, prog(t, NAIVE.t0, NAIVE.t1)), r); return { x: q.x, y: q.y, a: 1, press: 1 }; }
-    const k = eio(prog(t, NAIVE.t1, 4.05)); return { x: lerp(endP.x, W - 40, k), y: lerp(endP.y, r.y + r.h, k), a: 1 - prog(t, 3.85, 4.05), press: 0 };
-  }
-  if (t < 6.2 || t > 10.75 || !POPUP_CURSOR) return null;
+  if (t < STROKES[0].t0 || t > END_PAINT + 0.25 || !POPUP_CURSOR) return null;
   const i = strokeAt(t), S = STROKES[i], c = POPUP_CURSOR;
   const st = toScr(S.path[0], r);
-  if (t < S.t0 + 0.33) {                                   // 팝업으로 와서 색 찍기
-    if (i === 0) return { x: c.x, y: c.y, a: prog(t, 6.2, 6.35), press: t > S.t0 + 0.2 ? 1 : 0 };
-    const pe = toScr(STROKES[i - 1].path[STROKES[i - 1].path.length - 1], r), k = eio(prog(t, S.t0, S.t0 + 0.2));
+  if (t < S.t0 + PH.go0) {                                   // 팝업으로 와서 색 찍기
+    if (i === 0) return { x: c.x, y: c.y, a: prog(t, S.t0, S.t0 + 0.15), press: t > S.t0 + 0.2 ? 1 : 0 };
+    const pe = toScr(STROKES[i - 1].path[STROKES[i - 1].path.length - 1], r), k = eio(prog(t, S.t0 - 0.1, S.t0 + 0.2));
     return { x: lerp(pe.x, c.x, k), y: lerp(pe.y, c.y, k), a: 1, press: t > S.t0 + 0.2 ? 1 : 0 };
   }
-  if (t < S.t0 + 0.48) { const k = eio(prog(t, S.t0 + 0.33, S.t0 + 0.48)); return { x: lerp(c.x, st.x, k), y: lerp(c.y, st.y, k), a: 1, press: 0 }; }
-  const q = toScr(pointAt(S.path, prog(t, S.t0 + 0.48, S.t0 + 1.0)), r);
-  return { x: q.x, y: q.y, a: i === 3 ? 1 - prog(t, 10.55, 10.75) : 1, press: t < S.t0 + 1.0 ? 1 : 0 };
+  if (t < S.t0 + PH.go1) { const k = eio(prog(t, S.t0 + PH.go0, S.t0 + PH.go1)); return { x: lerp(c.x, st.x, k), y: lerp(c.y, st.y, k), a: 1, press: 0 }; }
+  const q = toScr(pointAt(S.path, prog(t, S.t0 + PH.go1, S.t0 + PH.p1)), r);
+  return { x: q.x, y: q.y, a: S === LAST ? 1 - prog(t, END_PAINT, END_PAINT + 0.25) : 1, press: t < S.t0 + PH.p1 ? 1 : 0 };
 }
 
 // ---------------- 팝업(SHA Paint 필드) ----------------
@@ -240,15 +234,17 @@ function makeField(L, w, h) {
   return { cv: oc, w, h, sc };
 }
 // SHA Paint 획: 그 자리 명도(L)의 필드에서 목표 색조(h)를 고름 (lab.py ACCENTS와 같은 색조)
-// 획마다: 팝업에서 색 고르기(t0~+0.3) → 얼굴로 이동(+0.33~+0.48) → 펜이 지나간 자리만 칠해짐(+0.48~+1.0) → 마무리(+0.95~+1.05)
-// path: 원본 800px 그림 좌표, brush: 붓 두께(같은 좌표계)
+// 획마다(t0 기준): 팝업에서 색 고르기(0~0.3) → 얼굴로 이동(0.33~0.48) → 펜이 지나간 자리만 칠해짐(0.48~1.1) → 마무리(1.05~1.15)
+// path: 원본 800px 그림 좌표, brush: 붓 두께(같은 좌표계). h/L: 팝업에서 고르는 색조/그 자리 명도 (lab.py ACCENTS와 같은 색조)
+const PH = { go0: 0.33, go1: 0.48, p1: 1.1, f0: 1.05, f1: 1.15 };
 const STROKES = [
-  { t0: 6.2, img: "sha-1", h: 292, L: 18, brush: 120, path: [[275, 95], [420, 90], [285, 250], [255, 420], [330, 485], [450, 500], [430, 600], [470, 650]] },
-  { t0: 7.28, img: "sha-2", h: 16, L: 30, brush: 110, path: [[265, 215], [300, 330], [335, 395], [440, 320], [470, 340], [560, 300]] },
-  { t0: 8.36, img: "sha-3", h: 78, L: 42, brush: 120, path: [[300, 140], [450, 180], [300, 300], [460, 300], [340, 445], [560, 560], [610, 610]] },
-  { t0: 9.44, img: "sha-4", h: 236, L: 26, brush: 110, path: [[370, 500], [470, 505], [400, 590], [610, 575]] }
+  { t0: 2.1, img: "sha-1", h: 286, L: 16, brush: 120, path: [[275, 95], [420, 90], [285, 250], [255, 420], [330, 485], [450, 500], [430, 600], [470, 650]] },
+  { t0: 3.35, img: "sha-2", h: 0, L: 28, brush: 115, path: [[265, 215], [300, 330], [335, 395], [440, 320], [470, 340], [560, 300]] },
+  { t0: 4.6, img: "sha-3", h: 68, L: 42, brush: 125, path: [[300, 140], [450, 180], [300, 300], [460, 300], [340, 445], [560, 560], [610, 610]] },
+  { t0: 5.85, img: "sha-4", h: 228, L: 22, brush: 115, path: [[250, 330], [370, 500], [470, 505], [400, 590], [615, 575]] },
+  { t0: 7.1, img: "sha-5", h: 325, L: 20, brush: 95, path: [[275, 90], [430, 85], [575, 250], [560, 330]] }
 ];
-const NAIVE = { t0: 2.75, t1: 3.75, brush: 120, path: [].concat(...STROKES.map((s) => s.path)) };
+const LAST = STROKES[STROKES.length - 1], END_PAINT = LAST.t0 + PH.f1;
 function strokeAt(t) { let i = 0; STROKES.forEach((s, k) => { if (t >= s.t0) i = k; }); return i; }
 function drawPopup(alpha, scale, t, lockA) {
   if (alpha <= 0) return;
@@ -277,7 +273,7 @@ function drawPopup(alpha, scale, t, lockA) {
   ctx.fillStyle = "#c9c9cf"; ctx.font = KR(800, 16); ctx.textAlign = "right"; ctx.fillText("L* " + S.L + " " + (LANG === "ko" ? "고정" : "locked"), w - 14, 248);
   ctx.restore();
   // 지금 칠하는 곳
-  ctx.save(); ctx.globalAlpha = alpha * clamp(prog(t, 6.3, 6.5));
+  ctx.save(); ctx.globalAlpha = alpha * clamp(prog(t, 2.2, 2.4));
   pill(T.strokes[i], p.x + w * p.s / 2, p.y + h * p.s + 34, "rgba(20,19,23,0.88)", INK, WIDE ? 26 : 26);
   ctx.restore();
 }
@@ -285,16 +281,25 @@ function drawPopup(alpha, scale, t, lockA) {
 // ---------------- 장면 ----------------
 function mainImage(t) {
   const r = LY.img;
-  if (t < 2.75) return drawWipe("orig", null, 0, r);
-  if (t < 4.4) return drawStroke("orig", "naive", NAIVE.path, NAIVE.brush, prog(t, NAIVE.t0, NAIVE.t1), prog(t, 3.7, 3.85), r);
-  if (t < 5.7) return drawWipe("naive", "naive-diff", eio(prog(t, 4.4, 4.95)), r);   // 흑백으로 넘겨 보기
-  if (t < 6.2) return drawWipe("naive-diff", "orig", eio(prog(t, 5.7, 6.05)), r);
-  if (t < 6.2) return drawWipe("orig", null, 0, r);
-  if (t < 10.6) {
+  if (t < STROKES[0].t0) return drawWipe("orig", null, 0, r);
+  if (t < 8.5) {
     const i = strokeAt(t), S = STROKES[i];
-    return drawStroke(i ? STROKES[i - 1].img : "orig", S.img, S.path, S.brush, prog(t, S.t0 + 0.48, S.t0 + 1.0), prog(t, S.t0 + 0.95, S.t0 + 1.05), r);
+    return drawStroke(i ? STROKES[i - 1].img : "orig", S.img, S.path, S.brush, prog(t, S.t0 + PH.go1, S.t0 + PH.p1), prog(t, S.t0 + PH.f0, S.t0 + PH.f1), r);
   }
-  return drawWipe("sha-4", "gray", eio(prog(t, 10.6, 11.15)), r);
+  if (t < 10.1) return compare(t, r);
+  return drawWipe("sha-5", "gray", eio(prog(t, 10.1, 10.65)), r);
+}
+// 원본(왼쪽) ↔ 완성(오른쪽) 슬라이드 비교
+function compare(t, r) {
+  const k = t < 9.1 ? lerp(0.5, 0.12, eio(prog(t, 8.5, 9.1))) : lerp(0.12, 0.88, eio(prog(t, 9.1, 9.75)));
+  const sx = r.x + r.w * k;
+  drawWipe("sha-5", null, 0, r);
+  ctx.save(); ctx.beginPath(); ctx.rect(r.x, r.y, sx - r.x, r.h); ctx.clip(); drawWipe("orig", null, 0, r); ctx.restore();
+  ctx.fillStyle = "#fff"; ctx.fillRect(sx - 2, r.y, 4, r.h);
+  ctx.beginPath(); ctx.arc(sx, r.y + r.h / 2, 22, 0, 7); ctx.fill();
+  ctx.fillStyle = BG; ctx.font = KR(900, 22); ctx.textAlign = "center"; ctx.fillText("‹ ›", sx, r.y + r.h / 2 + 8);
+  pill(T.before, r.x + 18, r.y + 40, "rgba(20,19,23,0.85)", INK, 24, "left");
+  pill(T.after, r.x + r.w - 18, r.y + 40, GOLD, "#241a08", 24, "right");
 }
 function inset(t) {
   const r = LY.inset;
@@ -304,16 +309,12 @@ function inset(t) {
   ctx.shadowColor = "rgba(0,0,0,0.55)"; ctx.shadowBlur = 24; ctx.shadowOffsetY = 8;
   ctx.fillStyle = "#000"; rr(r.x, r.y, r.w, r.h, 14); ctx.fill(); ctx.shadowColor = "transparent";
   ctx.save(); rr(r.x, r.y, r.w, r.h, 14); ctx.clip();
-  let k = 0;
-  if (t >= 2.6 && t < 5.7) k = eio(prog(t, 2.75, 3.85));
-  else if (t >= 5.7 && t < 6.5) k = 1 - eio(prog(t, 5.7, 6.05));
-  drawWipe("gray", "naive-diff", k, r);
+  drawWipe("gray", null, 0, r);
   ctx.restore();
   pill(T.gray, r.x + 14, r.y + 32, "rgba(20,19,23,0.85)", INK, 22, "left");
   // 상태 테두리 + 배지
   let st = null;
-  if (t >= 3.4 && t < 5.9) st = { ok: false, a: prog(t, 3.4, 3.7) * (1 - prog(t, 5.7, 5.9)) };
-  else if (t >= 6.9 && t < 12.2) st = { ok: true, a: prog(t, 6.9, 7.2) };
+  if (t >= 2.7 && t < 12.2) st = { ok: true, a: prog(t, 2.7, 3.0) };
   if (st) {
     ctx.globalAlpha = a * st.a;
     ctx.strokeStyle = st.ok ? GOOD : BAD; ctx.lineWidth = 6; rr(r.x - 3, r.y - 3, r.w + 6, r.h + 6, 16); ctx.stroke();
@@ -339,7 +340,7 @@ function endCard(t) {
   ctx.fillStyle = BG; ctx.fillRect(0, 0, W, H);
   const tw = WIDE ? 400 : 450, th = tw * CROP.sh / CROP.sw;
   const pair = WIDE ? { x: 110, y: (H - th) / 2 } : { x: (W - tw * 2 - 30) / 2, y: 300 };
-  [["orig", T.before], ["sha-4", T.after]].forEach(([n, lab], i) => {
+  [["orig", T.before], ["sha-5", T.after]].forEach(([n, lab], i) => {
     const r = { x: pair.x + i * (tw + 30), y: pair.y, w: tw, h: th };
     ctx.save(); rr(r.x, r.y, r.w, r.h, 16); ctx.clip(); drawWipe(n, null, 0, r); ctx.restore();
     pill(lab, r.x + 16, r.y + 34, i ? GOLD : "rgba(20,19,23,0.85)", i ? "#241a08" : INK, 24, "left");
@@ -372,8 +373,8 @@ function renderAt(t) {
     const r = LY.img;
     ctx.save(); rr(r.x, r.y, r.w, r.h, 18); ctx.clip(); mainImage(t); ctx.restore();
     inset(t);
-    const pa = clamp(prog(t, 6.0, 6.2)) * (1 - prog(t, 10.55, 10.75));
-    drawPopup(pa, back(prog(t, 6.0, 6.35)), t, prog(t, 6.3, 6.6));
+    const pa = clamp(prog(t, 1.9, 2.1)) * (1 - prog(t, END_PAINT, END_PAINT + 0.2));
+    drawPopup(pa, back(prog(t, 1.9, 2.25)), t, prog(t, 2.2, 2.5));
     const pen = penAt(t);
     if (pen) drawPen(pen.x, pen.y, pen.a, pen.press);
     caption(t);
@@ -385,11 +386,10 @@ function renderAt(t) {
 }
 
 window.SFX_CUES = [
-  { t: 0.2, type: "swell", vol: 0.5 }, { t: 1.0, type: "tick", vol: 0.6 },
-  { t: 2.75, type: "scribble", dur: 1.0 }, { t: 3.5, type: "erase", dur: 0.25 }, { t: 4.45, type: "whoosh", vol: 0.5 },
-  { t: 5.75, type: "whoosh", vol: 0.4 }, { t: 6.0, type: "pop" },
-  ...[6.2, 7.28, 8.36, 9.44].flatMap((t) => [{ t: t + 0.22, type: "click", vol: 0.8 }, { t: t + 0.48, type: "scribble", dur: 0.52 }]),
-  { t: 7.1, type: "chime", vol: 0.3 }, { t: 10.6, type: "whoosh", vol: 0.5 }, { t: 11.15, type: "chime", vol: 0.45 },
+  { t: 0.2, type: "swell", vol: 0.5 }, { t: 1.0, type: "tick", vol: 0.6 }, { t: 1.9, type: "pop" },
+  ...STROKES.flatMap((s) => [{ t: s.t0 + 0.22, type: "click", vol: 0.8 }, { t: s.t0 + 0.48, type: "scribble", dur: 0.62 }]),
+  { t: 3.0, type: "chime", vol: 0.3 }, { t: 8.5, type: "whoosh", vol: 0.5 }, { t: 9.1, type: "whoosh", vol: 0.4 },
+  { t: 10.1, type: "whoosh", vol: 0.5 }, { t: 10.7, type: "chime", vol: 0.45 },
   { t: 12.25, type: "swell" }, { t: 12.85, type: "chime" }
 ];
 window.AD_INFO = { DURATION, W, H, LANG, WIDE };
