@@ -1,4 +1,4 @@
-let currentConfig = { showPopupKey: "F11", clickFollowKey: "F9", activationTrigger: { type: "mouse", code: 3 } };
+let currentConfig = { showPopupKey: "F11", clickFollowKey: "F9", activationTrigger: { type: "mouse", code: 3 }, language: "auto" };
 let recordingTarget = null;
 
 // 각 설정 항목: config 키 <-> 라벨/버튼 엘리먼트 id 매핑 (activationTrigger는
@@ -19,12 +19,14 @@ function cacheEls() {
   el.saveBtn = document.getElementById("saveBtn");
   el.activationTriggerLabel = document.getElementById("activationTriggerLabel");
   el.recordActivationTriggerBtn = document.getElementById("recordActivationTriggerBtn");
+  el.languageSelect = document.getElementById("languageSelect");
 }
 
 async function renderLabels() {
   TARGETS.forEach((t) => {
     el[t.labelId].textContent = currentConfig[t.key] || t.emptyText || "-";
   });
+  el.languageSelect.value = currentConfig.language || "auto";
   el.activationTriggerLabel.textContent = await window.settingsAPI.triggerLabel(currentConfig.activationTrigger);
 }
 
@@ -57,6 +59,9 @@ document.addEventListener("DOMContentLoaded", () => {
     el[t.btnId].addEventListener("click", () => startRecording(t.key));
   });
   el.recordActivationTriggerBtn.addEventListener("click", () => startRecording("activationTrigger"));
+
+  // 언어는 저장할 때 바뀐 경우에만 main이 앱을 다시 시작해서 적용한다.
+  el.languageSelect.addEventListener("change", () => { currentConfig.language = el.languageSelect.value; });
 
   el.saveBtn.addEventListener("click", () => {
     window.settingsAPI.save(currentConfig);

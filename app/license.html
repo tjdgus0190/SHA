@@ -23,17 +23,17 @@
 </head>
 <body>
   <div class="wrap">
-    <h1>SHA Paint 라이선스</h1>
+    <h1 data-i18n="license.title">SHA Paint 라이선스</h1>
     <div class="row">
-      <label for="keyInput">구매 확인 메일에 있는 라이선스 키를 붙여넣으세요.</label>
+      <label for="keyInput" data-i18n="license.label"></label>
       <input id="keyInput" class="key-field" type="text" spellcheck="false" autocomplete="off"
              placeholder="XXXXXXXX-XXXXXXXX-XXXXXXXX-XXXXXXXX" />
       <div id="status" class="status"></div>
     </div>
     <div class="actions">
-      <button id="activateBtn" class="save-btn">확인</button>
+      <button id="activateBtn" class="save-btn" data-i18n="license.activate"></button>
     </div>
-    <p class="note">키 확인에는 인터넷 연결이 필요합니다. 한 번 확인되면 오프라인에서도 계속 사용할 수 있습니다.</p>
+    <p class="note" data-i18n="license.note"></p>
   </div>
   <script src="license-window.js"></script>
 </body>

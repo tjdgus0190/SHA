@@ -10,21 +10,21 @@ function setStatus(text, kind) {
 
 window.licenseAPI.onState((s) => {
   if (s.key && !input.value) input.value = s.key;
-  if (s.licensed) setStatus("라이선스가 확인되었습니다.", "ok");
+  if (s.licensed) setStatus(window.i18n.t("license.ok"), "ok");
   else if (s.reason) setStatus(s.reason, "error");
 });
 
 async function activate() {
   const key = input.value.trim();
-  if (!key) { setStatus("라이선스 키를 입력해 주세요.", "error"); return; }
+  if (!key) { setStatus(window.i18n.t("license.enterKey"), "error"); return; }
   btn.disabled = true;
-  setStatus("확인 중...");
+  setStatus(window.i18n.t("license.checking"));
   try {
     const s = await window.licenseAPI.activate(key);
-    if (s.licensed) setStatus("라이선스가 확인되었습니다. 이 창을 닫아도 됩니다.", "ok");
-    else setStatus(s.reason || "확인하지 못했습니다.", "error");
+    if (s.licensed) setStatus(window.i18n.t("license.okClose"), "ok");
+    else setStatus(s.reason || window.i18n.t("license.failed"), "error");
   } catch (e) {
-    setStatus("확인 중 오류가 발생했습니다: " + (e && e.message ? e.message : e), "error");
+    setStatus(window.i18n.t("license.error", { msg: e && e.message ? e.message : e }), "error");
   } finally {
     btn.disabled = false;
   }

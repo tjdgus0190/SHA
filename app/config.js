@@ -28,7 +28,10 @@ const DEFAULT_CONFIG = {
   // 브러시질 도중 매 클릭마다 닫힘이 걸리는 걸 원치 않을 수 있어서
   // 기본값은 켜두되(중클릭 등 브러시와 안 겹치는 트리거에선 자연스러운
   // 토글 UX), 상태 패널에서 언제든 끌 수 있게 했다.
-  triggerTogglesClose: true
+  triggerTogglesClose: true,
+  // 화면 언어: "auto"(OS 언어가 한국어면 한국어, 그 외 영어) | "ko" | "en".
+  // 트레이 메뉴 "언어 / Language" 또는 설정 창에서 바꾸면 앱이 다시 시작된다.
+  language: "auto"
 };
 
 function getConfigPath(app) {

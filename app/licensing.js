@@ -20,6 +20,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const i18n = require("./i18n.js");
 
 const GUMROAD_PRODUCT_ID = "Z-z4Harnz0sMKG_7200QXw==";
 const GUMROAD_VERIFY_URL = "https://api.gumroad.com/v2/licenses/verify";
@@ -32,7 +33,8 @@ function normalizeKey(key) {
   return String(key || "").trim().replace(/\s+/g, "").toUpperCase();
 }
 
-function createLicensing({ userDataDir, fetchImpl = globalThis.fetch, now = () => Date.now(), productId = GUMROAD_PRODUCT_ID, log = console }) {
+// tr: 사용자에게 보여줄 사유 문구 번역 함수(main이 i18n.t를 넘김). 기본은 한국어.
+function createLicensing({ userDataDir, fetchImpl = globalThis.fetch, now = () => Date.now(), productId = GUMROAD_PRODUCT_ID, log = console, tr = (k, v) => i18n.t(k, v, "ko") }) {
   const keyPath = path.join(userDataDir, "license-key.txt");
   const cachePath = path.join(userDataDir, "license.json");
 
@@ -64,17 +66,17 @@ function createLicensing({ userDataDir, fetchImpl = globalThis.fetch, now = () =
       });
       let data = {};
       try { data = await res.json(); } catch (e) { /* 본문 없음 */ }
-      if (res.status >= 500) return { ok: false, network: true, reason: `서버 오류(${res.status})` };
-      if (!data.success) return { ok: false, network: false, reason: "유효하지 않은 라이선스 키입니다." };
+      if (res.status >= 500) return { ok: false, network: true, reason: tr("license.serverError", { status: res.status }) };
+      if (!data.success) return { ok: false, network: false, reason: tr("license.invalid") };
       const p = data.purchase || {};
-      if (p.refunded || p.chargebacked || p.disputed) return { ok: false, network: false, reason: "환불 또는 결제 취소된 라이선스입니다." };
+      if (p.refunded || p.chargebacked || p.disputed) return { ok: false, network: false, reason: tr("license.refunded") };
       // 구매자가 좌석을 여러 개 샀으면(purchase.quantity) 그만큼 PC 수를 늘려준다.
       const seats = Math.max(1, Math.floor(Number(p.quantity)) || 1);
       const limit = MAX_ACTIVATIONS * seats;
-      if (Number(data.uses) > limit) return { ok: false, network: false, reason: `이 키는 이미 ${limit}대의 PC에서 사용 중입니다. 문의해 주세요.` };
+      if (Number(data.uses) > limit) return { ok: false, network: false, reason: tr("license.tooMany", { limit }) };
       return { ok: true, network: false, reason: "" };
     } catch (e) {
-      return { ok: false, network: true, reason: "인터넷 연결을 확인할 수 없습니다." };
+      return { ok: false, network: true, reason: tr("license.offline") };
     } finally {
       clearTimeout(timer);
     }
@@ -88,7 +90,7 @@ function createLicensing({ userDataDir, fetchImpl = globalThis.fetch, now = () =
       return { licensed: true, reason: "", key: readKey(), devMode: true };
     }
     const key = readKey();
-    if (!key) return { licensed: false, reason: "라이선스 키를 입력해 주세요.", key: "" };
+    if (!key) return { licensed: false, reason: tr("license.enterKey"), key: "" };
 
     const cache = readCache();
     const sameKey = cache.key === key;
@@ -114,7 +116,7 @@ function createLicensing({ userDataDir, fetchImpl = globalThis.fetch, now = () =
 
   async function activate(key) {
     const k = normalizeKey(key);
-    if (k.length < 8) return { licensed: false, reason: "라이선스 키를 정확히 입력해 주세요.", key: k };
+    if (k.length < 8) return { licensed: false, reason: tr("license.enterKeyExact"), key: k };
     writeKey(k);
     return check({ force: true });
   }

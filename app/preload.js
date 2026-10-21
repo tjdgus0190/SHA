@@ -15,6 +15,11 @@ const {
   rgbToLab,
   relativeLuminance
 } = require(path.join(__dirname, "colorMath.js"));
+const i18n = require(path.join(__dirname, "i18n.js"));
+
+// 화면 언어는 main이 정한다. 팝업의 버튼 툴팁/알림 문구(data-i18n*)를 바꾼다.
+const lang = ipcRenderer.sendSync("i18n-get-lang");
+window.addEventListener("DOMContentLoaded", () => i18n.applyDom(document, lang));
 
 console.log("[preload] colorMath 로드 성공:", {
   labFieldPixel: typeof labFieldPixel,
