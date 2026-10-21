@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<title>SHA Paint 15s Ad v3</title>
+<!--
+  SHA Paint 인스타그램 릴스/스토리용 15초 광고 v3 (1080x1920, 9:16, 밝은 톤).
+  메인 메시지: 명도(L*)를 고정한 채 지금 색과 같은 명도에서 어울리는 색을 고른다 → 입체감(명암)이 무너지지 않는다.
+    0.0–3.8  문제: 일반 피커로 색을 바꾸면 명도까지 바뀌어 구의 명암이 뒤집힘(흑백 미리보기로 확인)
+    3.8–6.4  SHA Paint 팝업: 명도 잠금
+    6.4–9.6  같은 명도 필드에서 색 고르기 — 흑백은 그대로
+    9.6–12.4 그림자·빛 색도 같은 명도에서 → 흑백 전환해도 처음과 같은 명암
+    12.4–15  엔드카드
+  - ?lang=en 영문판, ?render=1 이면 자동재생 없이 window.__start() 후 window.renderAt(t)로 프레임 렌더(render-v3.js)
+  - 색/필드는 앱의 실제 색 계산(../../../app/colorMath.js)으로 그린다. 흑백 = 같은 L*의 회색(a=b=0).
+-->
+<style>
+  @font-face { font-family: "KR"; src: local("Noto Sans KR"), local("NotoSansKR"), url("file:///C:/Windows/Fonts/NotoSansKR-VF.ttf"); font-weight: 100 900; }
+  @font-face { font-family: "KRFallback"; src: local("Malgun Gothic"), local("맑은 고딕"); }
+  @font-face { font-family: "Serif"; src: local("Noto Serif Bold"), local("NotoSerif-Bold"), url("file:///C:/Windows/Fonts/NotoSerif-Bold.ttf"); font-weight: 700; }
+  html, body { margin: 0; background: #f3eee6; overflow: hidden; }
+  canvas { display: block; }
+</style>
+<script src="../../../app/colorMath.js"></script>
+</head>
+<body>
+<canvas id="c" width="1080" height="1920"></canvas>
+<script>
+(() => {
+"use strict";
+const CM = window.ColorMath;
+const P = new URLSearchParams(location.search);
+const LANG = P.get("lang") === "en" ? "en" : "ko";
+const RENDER = P.get("render") === "1";
+const W = 1080, H = 1920, DURATION = 15;
+const cv = document.getElementById("c"), ctx = cv.getContext("2d");
+
+// ---------------- 색 ----------------
+const PAPER = "#f3eee6", INK = "#1c1a1f", INK_DIM = "#6f6860", ACCENT = "#d9822b", BAD = "#c8402f", GOOD = "#2f8f5b";
+const css = (c) => `rgb(${c.r},${c.g},${c.b})`;
+function tone(L, h, ratio) {               // 고정 L에서 hue, 최대 채도 비율로 색 만들기
+  const c = CM.findMaxChromaForHue(L, h) * ratio;
+  const { a, b } = CM.polarToAB(c, h);
+  return { L, a, b, h, rgb: CM.labToRgb(L, a, b, true) };
+}
+function fromRgb(rgb) { const l = CM.rgbToLab(rgb.r, rgb.g, rgb.b); return { L: l.L, a: l.a, b: l.b, rgb }; }
+const grayOf = (L) => CM.labToRgb(L, 0, 0, true);
+const mixRgb = (p, q, k) => ({ r: Math.round(p.r + (q.r - p.r) * k), g: Math.round(p.g + (q.g - p.g) * k), b: Math.round(p.b + (q.b - p.b) * k) });
+
+// 처음 팔레트(코랄 구): 빛 L85 / 기본 L65 / 그림자 L40
+const L_LIGHT = 85, L_BASE = 65, L_SHADOW = 40;
+const START = { light: tone(L_LIGHT, 45, 0.55), base: tone(L_BASE, 28, 0.78), shadow: tone(L_SHADOW, 22, 0.72) };
+// 끝 팔레트: 같은 명도에서 색만 — 기본 로즈, 그림자 바이올렛(차갑게), 빛 앰버(따뜻하게)
+const H_BASE_END = 0, H_SHADOW_END = 312, H_LIGHT_END = 88;
+// 일반 피커가 고른 색(명도가 바뀜)
+const NAIVE_A = { r: 247, g: 218, b: 72 };   // 노랑: L*≈88 → 빛보다 밝아짐
+const NAIVE_B = { r: 50, g: 78, b: 168 };    // 파랑: L*≈35 → 그림자보다 어두워짐
+const GROUND = { L: 90 };
+
+// ---------------- 문구 ----------------
+const T = {
+  ko: {
+    caps: [
+      { t0: 0.1, t1: 3.7, l1: "색만 바꿨을 뿐인데", l2: "입체감이 무너졌다?", sub: "보통 피커는 색과 함께 명도까지 바뀝니다" },
+      { t0: 3.85, t1: 6.35, l1: "SHA Paint는", l2: "명도를 고정합니다", sub: "L*(명도)는 그대로, 색조·채도만 고르세요" },
+      { t0: 6.45, t1: 9.55, l1: "지금 색과 같은 명도에서", l2: "어울리는 색을 바로", sub: "어떤 색을 골라도 흑백은 그대로" },
+      { t0: 9.65, t1: 12.35, l1: "그림자·빛 색까지 바꿔도", l2: "입체감은 그대로", sub: "명암 단계가 유지되어 형태가 살아 있습니다" }
+    ],
+    gray: "흑백", broken: "명암 뒤집힘", kept: "명암 유지", lockTip: "명도 잠금",
+    light: "빛", base: "기본", shadow: "그림자", picker: "보통 색상 피커",
+    sameL: (L) => `L* ${L} 그대로`, fieldFor: { base: "기본", shadow: "그림자", light: "빛" },
+    tag: "<명도는 고정>, 색만 자유롭게", sub2: "입체감을 지키는 동명도 팔레트",
+    meta: "$10 · 1회 결제 · Photoshop · Windows",
+    cta: "프로필 링크에서 구매", disc: "실제 앱 UI와 색 계산으로 재현한 연출 화면"
+  },
+  en: {
+    caps: [
+      { t0: 0.1, t1: 3.7, l1: "Just changed the color...", l2: "and the form went flat?", sub: "A normal picker changes the value along with the color" },
+      { t0: 3.85, t1: 6.35, l1: "SHA Paint", l2: "locks the value", sub: "Lightness (L*) stays put — pick only hue & chroma" },
+      { t0: 6.45, t1: 9.55, l1: "Same value as your color,", l2: "colors that fit, instantly", sub: "Whatever you pick, grayscale stays the same" },
+      { t0: 9.65, t1: 12.35, l1: "Recolor shadows & lights,", l2: "the form stays intact", sub: "Value steps hold, so the shape keeps its depth" }
+    ],
+    gray: "Grayscale", broken: "Values flipped", kept: "Values kept", lockTip: "Value locked",
+    light: "Light", base: "Base", shadow: "Shadow", picker: "Normal color picker",
+    sameL: (L) => `L* ${L} kept`, fieldFor: { base: "Base", shadow: "Shadow", light: "Light" },
+    tag: "<Value locked>, color free", sub2: "A same-value palette that keeps your form",
+    meta: "$10 · One-time · Photoshop · Windows",
+    cta: "Shop via link in bio", disc: "Simulated screen using the real app UI and color math"
+  }
+}[LANG];
+
+// ---------------- 유틸 ----------------
+const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const eio = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+const eout = (x) => 1 - Math.pow(1 - x, 3);
+const back = (x) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+const lerp = (a, b, k) => a + (b - a) * k;
+const lerpHue = (a, b, k) => { let d = ((b - a + 540) % 360) - 180; return (a + d * k + 360) % 360; };
+const KR = (w, s) => `${w} ${s}px KR, KRFallback, sans-serif`;
+function rr(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
+function richText(str, x, y, size, weight, base, accent, maxW = 980) {
+  const parts = str.split(/<|>/);
+  let s = size, widths, total;
+  do { ctx.font = KR(weight, s); widths = parts.map((p) => ctx.measureText(p).width); total = widths.reduce((q, v) => q + v, 0); s -= 2; } while (total > maxW && s > 20);
+  let cx = x - total / 2; ctx.textAlign = "left";
+  parts.forEach((p, i) => { ctx.fillStyle = i % 2 ? accent : base; ctx.fillText(p, cx, y); cx += widths[i]; });
+}
+function fitText(str, x, y, maxW, size, weight, color, align = "center") {
+  let s = size; ctx.font = KR(weight, s);
+  while (ctx.measureText(str).width > maxW && s > 18) { s -= 2; ctx.font = KR(weight, s); }
+  ctx.fillStyle = color; ctx.textAlign = align; ctx.fillText(str, x, y);
+}
+function pill(text, x, y, bg, fg, size = 26, align = "center") {
+  ctx.font = KR(800, size); const w = ctx.measureText(text).width + size * 1.4, h = size * 1.9;
+  const x0 = align === "center" ? x - w / 2 : align === "right" ? x - w : x;
+  ctx.fillStyle = bg; rr(x0, y - h / 2, w, h, h / 2); ctx.fill();
+  ctx.fillStyle = fg; ctx.textAlign = "center"; ctx.fillText(text, x0 + w / 2, y + size * 0.36);
+}
+function lockIcon(x, y, s, color) {
+  ctx.save(); ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = s * 0.16;
+  ctx.beginPath(); ctx.arc(x, y - s * 0.12, s * 0.28, Math.PI, 0); ctx.lineTo(x + s * 0.28, y + s * 0.05); ctx.moveTo(x - s * 0.28, y + s * 0.05); ctx.lineTo(x - s * 0.28, y - s * 0.12); ctx.stroke();
+  rr(x - s * 0.42, y, s * 0.84, s * 0.6, s * 0.1); ctx.fill(); ctx.restore();
+}
+
+// ---------------- 레이아웃 ----------------
+const WIN = { x: 50, y: 500, w: 980, h: 1080 };
+const CANVAS = { x: 80, y: 550, w: 920, h: 1000 };
+const SPH = { x: 315, y: 950, r: 205 };                       // 구
+const INSET = { x: 610, y: 1120, w: 360, h: 340 };            // 흑백 미리보기
+const POP = { x: 560, y: 585, s: 1.45 };                       // 팝업/피커 위치
+const POP_W = 300, POP_H = 270;
+const CHIPS = { x: 105, y: 1290 };                            // 톤 칩(빛/기본/그림자 + L*)
+
+// ---------------- 그리기 요소 ----------------
+// 셀 셰이딩 구: tones = {light, base, shadow} 각 {L, rgb}. gray면 같은 L*의 회색으로.
+function drawSphere(cx, cy, r, tones, gray) {
+  const col = (k) => css(gray ? grayOf(tones[k].L) : tones[k].rgb);
+  // 바닥 그림자
+  ctx.save(); ctx.fillStyle = css(gray ? grayOf(GROUND.L - 8) : { r: 226, g: 219, b: 212 });
+  ctx.beginPath(); ctx.ellipse(cx + r * 0.25, cy + r * 0.98, r * 0.95, r * 0.2, 0, 0, 7); ctx.fill(); ctx.restore();
+  ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.clip();
+  ctx.fillStyle = col("shadow"); ctx.fillRect(cx - r, cy - r, 2 * r, 2 * r);
+  ctx.fillStyle = col("base"); ctx.beginPath(); ctx.arc(cx - r * 0.2, cy - r * 0.2, r * 0.98, 0, 7); ctx.fill();
+  ctx.fillStyle = col("light"); ctx.beginPath(); ctx.ellipse(cx - r * 0.38, cy - r * 0.4, r * 0.36, r * 0.3, -0.6, 0, 7); ctx.fill();
+  ctx.restore();
+  ctx.strokeStyle = "#3a2f2a"; ctx.lineWidth = Math.max(2, r * 0.025); ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.stroke();
+}
+
+function drawWindow() {
+  ctx.save();
+  ctx.shadowColor = "rgba(40,30,20,0.18)"; ctx.shadowBlur = 40; ctx.shadowOffsetY = 18;
+  ctx.fillStyle = "#e6e0d6"; rr(WIN.x, WIN.y, WIN.w, WIN.h, 24); ctx.fill();
+  ctx.restore();
+  ctx.fillStyle = "#d9d2c6"; rr(WIN.x, WIN.y, WIN.w, 36, [24, 24, 0, 0]); ctx.fill();
+  ["#ec6a5e", "#f4bf4f", "#61c554"].forEach((c, i) => { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(WIN.x + 26 + i * 22, WIN.y + 18, 6, 0, 7); ctx.fill(); });
+  ctx.fillStyle = "#ffffff"; rr(CANVAS.x, CANVAS.y, CANVAS.w, CANVAS.h, 10); ctx.fill();
+}
+
+// 흑백 미리보기: 같은 구를 L*만 남겨서 + 상태 배지
+function drawInset(tones, state) {
+  const { x, y, w, h } = INSET;
+  ctx.save();
+  ctx.shadowColor = "rgba(0,0,0,0.18)"; ctx.shadowBlur = 20; ctx.shadowOffsetY = 8;
+  ctx.fillStyle = css(grayOf(GROUND.L + 6)); rr(x, y, w, h, 16); ctx.fill(); ctx.shadowColor = "transparent";
+  ctx.beginPath(); ctx.roundRect(x, y, w, h, 16); ctx.clip();
+  drawSphere(x + w * 0.45, y + h * 0.52, 105, tones, true);
+  ctx.restore();
+  pill(T.gray, x + 16, y + 34, "rgba(28,26,31,0.85)", "#fff", 22, "left");
+  if (state) {
+    const ok = state.ok, a = state.a;
+    ctx.save(); ctx.globalAlpha = a;
+    ctx.strokeStyle = ok ? GOOD : BAD; ctx.lineWidth = 6; rr(x - 3, y - 3, w + 6, h + 6, 18); ctx.stroke();
+    pill((ok ? "✓ " : "! ") + (ok ? T.kept : T.broken), x + w / 2, y + h + 38, ok ? GOOD : BAD, "#fff", 26);
+    ctx.restore();
+  }
+}
+
+// 톤 칩: 빛/기본/그림자 색 + L* 값. hi = 강조할 키, warnBase = 기본 L* 변화 표시
+function drawChips(tones, opt = {}) {
+  const keys = ["light", "base", "shadow"], names = { light: T.light, base: T.base, shadow: T.shadow };
+  const cw = 150, gap = 10;
+  keys.forEach((k, i) => {
+    const x = CHIPS.x + i * (cw + gap), y = CHIPS.y;
+    const tn = tones[k];
+    ctx.fillStyle = "rgba(255,255,255,0.0)";
+    ctx.fillStyle = css(tn.rgb); rr(x, y, cw, 74, [14, 14, 0, 0]); ctx.fill();
+    ctx.fillStyle = css(grayOf(tn.L)); rr(x, y + 74, cw, 30, [0, 0, 14, 14]); ctx.fill();
+    if (opt.hi === k) { ctx.strokeStyle = INK; ctx.lineWidth = 4; rr(x - 5, y - 5, cw + 10, 114, 18); ctx.stroke(); }
+    ctx.fillStyle = INK_DIM; ctx.font = KR(700, 22); ctx.textAlign = "center"; ctx.fillText(names[k], x + cw / 2, y + 140);
+    const Lr = Math.round(tn.L);
+    const orig = Math.round(START[k].L);
+    const changed = Math.abs(Lr - orig) >= 3;
+    ctx.font = KR(900, 30); ctx.fillStyle = changed ? BAD : INK;
+    ctx.fillText(changed ? `L* ${orig}→${Lr}` : `L* ${Lr}`, x + cw / 2, y + 180);
+    if (opt.lock && !changed) lockIcon(x + cw - 22, y + 18, 22, "rgba(255,255,255,0.92)");
+  });
+}
+
+// 보통 색상 피커(HSV 사각형 + 색조 띠)
+function drawNaivePicker(x, y, s, alpha, hueDeg, cursor, cross) {
+  if (alpha <= 0) return;
+  const w = POP_W, h = POP_H;
+  ctx.save(); ctx.globalAlpha = alpha; ctx.translate(x, y); ctx.scale(s, s);
+  ctx.shadowColor = "rgba(0,0,0,0.25)"; ctx.shadowBlur = 24; ctx.shadowOffsetY = 10;
+  ctx.fillStyle = "#cfc7ba"; rr(0, 0, w, h, 12); ctx.fill(); ctx.shadowColor = "transparent";
+  ctx.fillStyle = INK_DIM; ctx.font = KR(700, 17); ctx.textAlign = "left"; ctx.fillText(T.picker, 12, 26);
+  const gx = 12, gy = 38, gw = w - 24, gh = 170;
+  let g = ctx.createLinearGradient(gx, 0, gx + gw, 0); g.addColorStop(0, "#fff"); g.addColorStop(1, `hsl(${hueDeg},100%,50%)`);
+  ctx.fillStyle = g; ctx.fillRect(gx, gy, gw, gh);
+  g = ctx.createLinearGradient(0, gy, 0, gy + gh); g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, "#000");
+  ctx.fillStyle = g; ctx.fillRect(gx, gy, gw, gh);
+  g = ctx.createLinearGradient(gx, 0, gx + gw, 0);
+  ["#f00", "#ff0", "#0f0", "#0ff", "#00f", "#f0f", "#f00"].forEach((c, i) => g.addColorStop(i / 6, c));
+  ctx.fillStyle = g; ctx.fillRect(gx, gy + gh + 14, gw, 22);
+  ctx.strokeStyle = "#fff"; ctx.lineWidth = 3; ctx.strokeRect(gx + gw * hueDeg / 360 - 3, gy + gh + 11, 6, 28);
+  if (cursor) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(gx + cursor.x * gw, gy + cursor.y * gh, 8, 0, 7); ctx.stroke(); }
+  ctx.restore();
+  if (cross > 0) {
+    ctx.save(); ctx.globalAlpha = cross; ctx.strokeStyle = BAD; ctx.lineWidth = 8; ctx.lineCap = "round";
+    const cx = x + w * s / 2, cy = y + h * s / 2, k = 70 * eout(cross);
+    ctx.beginPath(); ctx.moveTo(cx - k, cy - k); ctx.lineTo(cx + k, cy + k); ctx.moveTo(cx + k, cy - k); ctx.lineTo(cx - k, cy + k); ctx.stroke(); ctx.restore();
+  }
+}
+
+// SHA Paint 팝업 (app/overlay.html 구조를 단순화) — 필드는 고정 L의 실제 Lab 단면
+const FIELDS = {};
+function makeField(L, w, h) {
+  let range = 0; for (let hh = 0; hh < 360; hh += 10) range += CM.findMaxChromaForHue(L, hh) / 36;
+  range *= 1.2;   // 평균 채도 기준(파랑 쪽 긴 꼬리는 잘려도 됨) → 작은 화면에서도 필드가 꽉 차 보이게
+  const oc = document.createElement("canvas"); oc.width = w; oc.height = h;
+  const o = oc.getContext("2d"), img = o.createImageData(w, h);
+  const sc = range / Math.min(w / 2, h / 2);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const c = CM.labFieldPixel(L, (x - w / 2) * sc, (y - h / 2) * sc, false);
+    const i = (y * w + x) * 4;
+    if (c) { img.data[i] = c.r; img.data[i + 1] = c.g; img.data[i + 2] = c.b; img.data[i + 3] = 255; }
+  }
+  o.putImageData(img, 0, 0);
+  return { cv: oc, w, h, sc, L };
+}
+// 팝업 로컬 좌표(필드 원점 12,12) → 화면 좌표
+function popPoint(col) {
+  const F = FIELDS[Math.round(col.L)];
+  return { x: POP.x + (12 + F.w / 2 + col.a / F.sc) * POP.s, y: POP.y + (12 + F.h / 2 + col.b / F.sc) * POP.s };
+}
+function drawPopup(alpha, scale, fieldL, fieldL2, mixK, cur, history, label, lockPulse) {
+  if (alpha <= 0) return;
+  const w = POP_W, h = POP_H, F = FIELDS[fieldL];
+  ctx.save(); ctx.globalAlpha = alpha; ctx.translate(POP.x, POP.y); ctx.scale(POP.s * scale, POP.s * scale);
+  ctx.shadowColor = "rgba(0,0,0,0.35)"; ctx.shadowBlur = 30; ctx.shadowOffsetY = 12;
+  ctx.fillStyle = "#2b2b2f"; rr(0, 0, w, h, 16); ctx.fill(); ctx.shadowColor = "transparent";
+  ctx.fillStyle = "#3a3a3f"; rr(12, 12, w - 24, 172, 8); ctx.fill();
+  ctx.drawImage(F.cv, 12, 12);
+  if (fieldL2 && mixK > 0) { ctx.globalAlpha = alpha * mixK; ctx.drawImage(FIELDS[fieldL2].cv, 12, 12); ctx.globalAlpha = alpha; }
+  if (label) { ctx.font = KR(800, 15); const lw = ctx.measureText(label).width + 18;
+    ctx.fillStyle = "rgba(20,20,24,0.78)"; rr(w - 12 - lw - 6, 18, lw, 26, 13); ctx.fill();
+    ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.fillText(label, w - 12 - 6 - lw / 2, 36); }
+  // 명도 바 + 잠긴 핸들
+  const Lh = fieldL2 && mixK > 0.5 ? fieldL2 : fieldL;
+  const g = ctx.createLinearGradient(12, 0, w - 12, 0); g.addColorStop(0, "#1b1b1f"); g.addColorStop(1, "#f2f2f2");
+  ctx.fillStyle = g; rr(12, 196, w - 24, 12, 6); ctx.fill();
+  const hx = 12 + (w - 24) * Lh / 100;
+  ctx.fillStyle = "#fff"; rr(hx - 4, 192, 8, 20, 3); ctx.fill();
+  if (lockPulse > 0) {
+    ctx.save(); ctx.globalAlpha = alpha * lockPulse;
+    ctx.fillStyle = ACCENT; ctx.beginPath(); ctx.arc(hx, 172, 15, 0, 7); ctx.fill();
+    lockIcon(hx, 168, 18, "#fff");
+    ctx.restore();
+  }
+  ctx.fillStyle = css(cur); rr(14, 224, 30, 30, 6); ctx.fill();
+  history.forEach((c, i) => { ctx.fillStyle = css(c); rr(58 + i * 28, 230, 20, 20, 5); ctx.fill(); });
+  ctx.fillStyle = "#c9c9cf"; ctx.font = KR(800, 16); ctx.textAlign = "right"; ctx.fillText("L* " + Lh, w - 14, 248);
+  ctx.restore();
+}
+
+function drawPen(x, y, alpha = 1, press = 0, rot = 0.5) {
+  ctx.save(); ctx.globalAlpha = alpha; ctx.translate(x, y); ctx.rotate(rot);
+  ctx.shadowColor = "rgba(0,0,0,0.25)"; ctx.shadowBlur = 18; ctx.shadowOffsetX = 8; ctx.shadowOffsetY = 10;
+  ctx.fillStyle = "#2a2730"; rr(-12, -300, 24, 270, 12); ctx.fill();
+  ctx.shadowColor = "transparent";
+  ctx.fillStyle = "#45404d"; rr(-12, -150, 24, 34, 4); ctx.fill();
+  ctx.fillStyle = "#cfc8bd"; ctx.beginPath(); ctx.moveTo(-10, -32); ctx.lineTo(0, 0); ctx.lineTo(10, -32); ctx.closePath(); ctx.fill();
+  ctx.restore();
+  if (press > 0) { ctx.save(); ctx.globalAlpha = press * 0.55; ctx.strokeStyle = ACCENT; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(x, y, 14 + 20 * press, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); }
+}
+
+function drawCaption(t) {
+  let cap = null;
+  for (const c of T.caps) if (t >= c.t0 && t <= c.t1) cap = c;
+  if (!cap) return;
+  const a = Math.min(eout(prog(t, cap.t0, cap.t0 + 0.25)), 1 - prog(t, cap.t1 - 0.15, cap.t1));
+  ctx.save(); ctx.globalAlpha = a; ctx.translate(0, (1 - a) * 16);
+  fitText(cap.l1, W / 2, 262, 980, 66, 800, INK);
+  fitText(cap.l2, W / 2, 356, 980, 84, 900, ACCENT);
+  fitText(cap.sub, W / 2, 428, 980, 32, 500, INK_DIM);
+  ctx.restore();
+}
+
+// ---------------- 타임라인(톤 상태) ----------------
+// 기본색의 hue 경로(장면 3): 지금 색 → 주변 색들을 훑고 → 로즈에 안착
+const SWEEP = [ { t: 6.9, h: 28 }, { t: 7.5, h: 70 }, { t: 8.1, h: 150 }, { t: 8.6, h: 230 }, { t: 9.15, h: H_BASE_END } ];
+function sweepHue(t) {
+  if (t <= SWEEP[0].t) return SWEEP[0].h;
+  for (let i = 0; i < SWEEP.length - 1; i++) { const a = SWEEP[i], b = SWEEP[i + 1];
+    if (t <= b.t) return lerpHue(a.h, b.h, eio(prog(t, a.t, b.t))); }
+  return SWEEP[SWEEP.length - 1].h;
+}
+function baseRatio(h) { return h > 120 && h < 260 ? 0.62 : 0.74; }   // 초록~파랑은 조금 덜 쨍하게
+
+function tonesAt(t) {
+  if (t < 3.8) {           // 장면 1: 보통 피커 → 기본색 명도가 바뀜
+    let rgb = START.base.rgb;
+    if (t > 0.9) rgb = mixRgb(START.base.rgb, NAIVE_A, eio(prog(t, 0.9, 1.6)));
+    if (t > 2.2) rgb = mixRgb(NAIVE_A, NAIVE_B, eio(prog(t, 2.2, 2.9)));
+    return { light: START.light, base: fromRgb(rgb), shadow: START.shadow };
+  }
+  if (t < 6.4) return START;  // 장면 2: 되돌림
+  const bh = t < 9.6 ? sweepHue(t) : H_BASE_END;
+  const base = tone(L_BASE, bh, baseRatio(bh));
+  const sh = lerpHue(START.shadow.h, H_SHADOW_END, eio(prog(t, 10.0, 10.55)));
+  const lh = lerpHue(START.light.h, H_LIGHT_END, eio(prog(t, 10.95, 11.4)));
+  return { light: tone(L_LIGHT, lh, 0.55), base, shadow: tone(L_SHADOW, sh, 0.72) };
+}
+
+// ---------------- 장면 ----------------
+function stage(t) {
+  const tn = tonesAt(t);
+  const grayFlip = t > 11.6 && t < 12.3;
+  drawWindow();
+  drawSphere(SPH.x, SPH.y, SPH.r, tn, grayFlip);
+  if (grayFlip) pill(T.gray, CANVAS.x + 24, CANVAS.y + 40, INK, "#fff", 24, "left");
+
+  // 흑백 미리보기 상태
+  let state = null;
+  if (t < 3.8) { const broke = Math.abs(tn.base.L - L_BASE) > 12; if (broke) state = { ok: false, a: prog(t, 1.3, 1.5) }; }
+  else if (t > 6.9) state = { ok: true, a: prog(t, 7.0, 7.3) };
+  drawInset(tn, state);
+  drawChips(tn, { hi: t < 9.7 ? "base" : t < 10.8 ? "shadow" : "light", lock: t >= 3.8 && t > 4.9 });
+
+  // 장면 1: 보통 피커
+  if (t < 4.2) {
+    const pa = eout(prog(t, 0.2, 0.5)) * (1 - prog(t, 3.95, 4.2));
+    let hue = 14, cur = { x: 0.62, y: 0.2 };
+    if (t > 0.9) { const k = eio(prog(t, 0.9, 1.6)); hue = lerp(14, 52, k); cur = { x: lerp(0.62, 0.72, k), y: lerp(0.2, 0.03, k) }; }
+    if (t > 2.2) { const k = eio(prog(t, 2.2, 2.9)); hue = lerp(52, 226, k); cur = { x: lerp(0.72, 0.7, k), y: lerp(0.03, 0.34, k) }; }
+    drawNaivePicker(POP.x, POP.y, POP.s, pa, hue, cur, prog(t, 3.3, 3.6));
+    if (t > 0.5 && t < 3.9) {
+      const px = POP.x + (12 + cur.x * (POP_W - 24)) * POP.s, py = POP.y + (38 + cur.y * 170) * POP.s;
+      drawPen(px, py, eout(prog(t, 0.5, 0.8)) * (1 - prog(t, 3.6, 3.9)), (t > 0.9 && t < 1.6) || (t > 2.2 && t < 2.9) ? 1 : 0, 1.15);
+    }
+  }
+
+  // 장면 2~4: SHA Paint 팝업
+  if (t >= 3.95 && t < 12.4) {
+    const popT = 4.15;
+    const s = back(prog(t, popT, popT + 0.35));
+    const a = clamp(prog(t, popT, popT + 0.15)) * (1 - prog(t, 11.5, 11.7));
+    let fieldL = L_BASE, fieldL2 = null, mixK = 0, label = T.fieldFor.base + " · " + L_BASE;
+    if (t > 9.65) { fieldL = L_BASE; fieldL2 = L_SHADOW; mixK = eout(prog(t, 9.65, 9.9)); label = T.fieldFor.shadow + " · " + L_SHADOW; }
+    if (t > 10.65) { fieldL = L_SHADOW; fieldL2 = L_LIGHT; mixK = eout(prog(t, 10.65, 10.9)); label = T.fieldFor.light + " · " + L_LIGHT; }
+    const lockPulse = prog(t, 4.6, 4.8) * (t < 6.4 ? 1 : 1 - prog(t, 6.4, 6.6));
+    const curCol = t < 9.65 ? tonesAt(t).base.rgb : t < 10.65 ? tonesAt(t).shadow.rgb : tonesAt(t).light.rgb;
+    const hist = [START.base.rgb, START.shadow.rgb, START.light.rgb].concat(t > 9.2 ? [tone(L_BASE, H_BASE_END, 0.74).rgb] : []);
+    drawPopup(a, s, fieldL, fieldL2, mixK, curCol, hist, label, lockPulse);
+
+    // 펜: 팝업 필드의 지금 색 위치를 따라감
+    const tn = tonesAt(t);
+    let tip = null, press = 0;
+    if (t > 4.6 && t < 9.65) { tip = popPoint(tn.base); press = t > 6.85 && t < 9.2 ? 1 : 0; }
+    else if (t >= 9.65 && t < 10.65) { tip = popPoint(tn.shadow); press = t > 9.95 && t < 10.55 ? 1 : 0; }
+    else if (t >= 10.65 && t < 11.6) { tip = popPoint(tn.light); press = t > 10.9 && t < 11.4 ? 1 : 0; }
+    if (tip) drawPen(tip.x, tip.y, Math.min(prog(t, 4.6, 4.9), 1 - prog(t, 11.3, 11.6)), press, 1.15);
+    // "L* 고정" 꼬리표 (장면 2)
+    const la = prog(t, 4.7, 5.0) * (1 - prog(t, 6.2, 6.4));
+    if (la > 0) { ctx.save(); ctx.globalAlpha = la; pill(T.lockTip + " · L* " + L_BASE, POP.x + POP_W * POP.s / 2, POP.y + POP_H * POP.s + 40, ACCENT, "#fff", 28); ctx.restore(); }
+  }
+}
+
+function endCard(t) {
+  const a = eout(prog(t, 12.4, 12.8));
+  ctx.save(); ctx.globalAlpha = a;
+  ctx.fillStyle = PAPER; ctx.fillRect(0, 0, W, H);
+  // 결과 구(색) + 흑백 구 나란히: 처음 코랄 구와 같은 명암
+  const fin = tonesAt(12.4);
+  drawSphere(360, 640, 150, fin, false);
+  drawSphere(720, 640, 150, START, true);
+  ctx.fillStyle = INK_DIM; ctx.font = KR(700, 26); ctx.textAlign = "center";
+  ctx.fillText("L* 85 · 65 · 40", W / 2, 880);
+  ctx.fillStyle = INK; ctx.font = "700 120px Serif, serif"; ctx.fillText("SHA Paint", W / 2, 1060);
+  richText(T.tag, W / 2, 1160, 58, 900, INK, ACCENT);
+  fitText(T.sub2, W / 2, 1230, 960, 36, 700, INK);
+  fitText(T.meta, W / 2, 1295, 960, 32, 500, INK_DIM);
+  const ba = eout(prog(t, 13.0, 13.4));
+  ctx.globalAlpha = a * ba;
+  ctx.font = KR(800, 44); const bw = ctx.measureText(T.cta).width + 120;
+  ctx.fillStyle = ACCENT; rr(W / 2 - bw / 2, 1360, bw, 104, 52); ctx.fill();
+  ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.fillText(T.cta, W / 2, 1428);
+  ctx.restore();
+}
+
+function hueStrip(y) {
+  const g = ctx.createLinearGradient(0, 0, W, 0);
+  for (let i = 0; i <= 8; i++) g.addColorStop(i / 8, css(tone(L_BASE, i * 45, 0.8).rgb));
+  ctx.fillStyle = g; ctx.fillRect(0, y, W, 12);
+}
+
+function renderAt(t) {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = PAPER; ctx.fillRect(0, 0, W, H);
+  hueStrip(0);
+  ctx.fillStyle = INK_DIM; ctx.font = "700 32px Serif, serif"; ctx.textAlign = "center"; ctx.fillText("SHA Paint", W / 2, 150);
+  if (t < 12.8) { stage(t); drawCaption(t); }
+  if (t < 12.4) { ctx.fillStyle = "#9a9187"; ctx.font = KR(500, 22); ctx.textAlign = "center"; ctx.fillText(T.disc, W / 2, 1630); }
+  if (t >= 12.4) endCard(t);
+  hueStrip(H - 12);
+}
+
+window.SFX_CUES = [
+  { t: 0.25, type: "whoosh", vol: 0.6 }, { t: 0.95, type: "click" }, { t: 1.4, type: "tick" },
+  { t: 2.25, type: "click" }, { t: 2.9, type: "tick" }, { t: 3.35, type: "erase", dur: 0.3 },
+  { t: 4.15, type: "pop" }, { t: 4.65, type: "click", vol: 0.8 }, { t: 6.5, type: "swell" },
+  ...[7.5, 8.1, 8.6, 9.15].map((t) => ({ t, type: "tick", vol: 0.8 })),
+  { t: 9.7, type: "whoosh", vol: 0.5 }, { t: 10.5, type: "tick" }, { t: 10.7, type: "whoosh", vol: 0.5 }, { t: 11.35, type: "tick" },
+  { t: 11.62, type: "chime", vol: 0.55 }, { t: 12.45, type: "swell" }, { t: 13.05, type: "chime" }
+];
+window.AD_INFO = { DURATION, W, H, LANG };
+window.renderAt = renderAt;
+
+function start() {
+  return Promise.all([document.fonts.load(KR(900, 40)), document.fonts.load(KR(800, 40)), document.fonts.load(KR(700, 20)),
+    document.fonts.load(KR(500, 20)), document.fonts.load("700 40px Serif"), document.fonts.load(KR(800, 40), "가나다")].map((p) => p.catch(() => null))).then(() => {
+    [L_BASE, L_SHADOW, L_LIGHT].forEach((L) => { FIELDS[L] = makeField(L, 276, 172); });
+    renderAt(0);
+    window.__adReady = true;
+  });
+}
+window.__start = start;
+if (!RENDER) start().then(() => {
+  const t0 = performance.now();
+  const loop = () => { renderAt(((performance.now() - t0) / 1000) % DURATION); requestAnimationFrame(loop); };
+  loop();
+});
+})();
+</script>
+</body>
+</html>
