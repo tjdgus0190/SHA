@@ -12,6 +12,7 @@
 
 !include nsDialogs.nsh
 !include LogicLib.nsh
+!include WinMessages.nsh
 
 !define SHA_LICENSE_DIR "$APPDATA\luminance-overlay-app"
 !define SHA_LICENSE_FILE "$APPDATA\luminance-overlay-app\license-key.txt"
@@ -21,6 +22,8 @@
 ; 화면 문구(한국어/영어). 설치 프로그램 언어가 한국어(1042)면 한국어, 그 외엔 영어.
 ; LangString은 이 파일이 include되는 시점에 언어가 아직 정의되지 않아 쓸 수 없어서
 ; .onGUIInit 대신 페이지 함수 안에서 $LANGUAGE로 골라 변수에 담는다.
+Var ShaTHead
+Var ShaTSub
 Var ShaT1
 Var ShaT2
 Var ShaTShort
@@ -31,16 +34,20 @@ Var ShaTNetErr
 
 Function ShaLicenseStrings
   ${If} $LANGUAGE == 1042
+    StrCpy $ShaTHead "라이선스 키"
+    StrCpy $ShaTSub "구매하신 SHA Paint 라이선스 키를 입력하세요."
     StrCpy $ShaT1 "구매 확인 메일에 있는 SHA Paint 라이선스 키를 입력하세요.$\r$\n(예: XXXXXXXX-XXXXXXXX-XXXXXXXX-XXXXXXXX)"
-    StrCpy $ShaT2 "다음을 누르면 키를 인터넷으로 확인합니다.$\r$\n키를 잃어버리셨다면 구매하신 스토어의 구매 내역에서 다시 확인할 수 있습니다."
+    StrCpy $ShaT2 "설치를 누르면 키를 인터넷으로 확인합니다.$\r$\n키를 잃어버리셨다면 구매하신 스토어의 구매 내역에서 다시 확인할 수 있습니다."
     StrCpy $ShaTShort "라이선스 키를 정확히 입력해 주세요."
     StrCpy $ShaTChecking "라이선스 키를 확인하는 중..."
     StrCpy $ShaTRefunded "환불 또는 결제 취소된 라이선스 키입니다."
     StrCpy $ShaTInvalid "유효하지 않은 라이선스 키입니다.$\r$\n구매 확인 메일의 키를 그대로 붙여넣어 주세요."
     StrCpy $ShaTNetErr "인터넷 연결 문제로 라이선스 키를 확인하지 못했습니다.$\r$\n계속 설치할까요? (프로그램을 처음 실행할 때 다시 확인합니다)"
   ${Else}
+    StrCpy $ShaTHead "License key"
+    StrCpy $ShaTSub "Enter your SHA Paint license key."
     StrCpy $ShaT1 "Enter the SHA Paint license key from your purchase confirmation email.$\r$\n(e.g. XXXXXXXX-XXXXXXXX-XXXXXXXX-XXXXXXXX)"
-    StrCpy $ShaT2 "When you click Next, the key is checked online.$\r$\nIf you lost your key, you can find it again in your purchase history on the store."
+    StrCpy $ShaT2 "When you click Install, the key is checked online.$\r$\nIf you lost your key, you can find it again in your purchase history on the store."
     StrCpy $ShaTShort "Please enter the full license key."
     StrCpy $ShaTChecking "Checking your license key..."
     StrCpy $ShaTRefunded "This license key was refunded or its payment was canceled."
@@ -69,6 +76,12 @@ Function ShaLicensePageCreate
 
   nsDialogs::Create 1018
   Pop $ShaLicDialog
+  ; 페이지 머리말(제목/부제). MUI_HEADER_TEXT 매크로는 이 파일 include 시점에 없어서
+  ; 같은 일을 직접 한다(1037=제목, 1038=부제 컨트롤). 안 하면 이전 페이지 제목이 남는다.
+  GetDlgItem $0 $HWNDPARENT 1037
+  SendMessage $0 ${WM_SETTEXT} 0 "STR:$ShaTHead"
+  GetDlgItem $0 $HWNDPARENT 1038
+  SendMessage $0 ${WM_SETTEXT} 0 "STR:$ShaTSub"
   ${If} $ShaLicDialog == error
     Abort
   ${EndIf}
