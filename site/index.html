@@ -476,8 +476,8 @@
     .sph .t-light,.sph .t-base,.sph .t-shadow{animation:none !important;}
   }
 
-  /* -------- 실제 화면 녹화 데모: 자막 없는 영상(site/media) 위에 언어별 자막을 HTML로 겹치고,
-     아래 장면 목록은 클릭하면 그 장면으로 이동 + 재생 중인 장면을 표시한다. -------- */
+  /* -------- 데모 영상(site/media, 언어별 자막이 들어간 16:9) + 장면 목록:
+     클릭하면 그 장면으로 이동, 재생 중인 장면을 표시한다. -------- */
   .video-frame{
     margin-top:40px;
     position:relative;
@@ -488,40 +488,12 @@
     aspect-ratio:16/9;
   }
   .video-frame video{display:block;width:100%;height:100%;object-fit:cover;cursor:pointer;}
-  .video-cap{
-    position:absolute;
-    left:50%;
-    top:7%;
-    transform:translateX(-50%);
-    background:rgba(20,19,23,0.78);
-    color:#fff;
-    font-weight:700;
-    font-size:clamp(14px,2.2vw,24px);
-    padding:.35em .9em;
-    border-radius:8px;
-    white-space:nowrap;
-    pointer-events:none;
-    transition:opacity .25s;
-  }
-  .video-cap:empty{opacity:0;}
-  .video-badge{
-    position:absolute;
-    left:12px; bottom:12px;
-    font-size:12px;
-    font-weight:600;
-    color:var(--ink);
-    background:rgba(20,19,23,0.7);
-    padding:4px 10px;
-    border-radius:20px;
-    pointer-events:none;
-  }
-  .video-badge::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:#e8473d;margin-right:6px;vertical-align:1px;}
   .chapters{
     list-style:none;
     margin:16px 0 0;
     padding:0;
     display:grid;
-    grid-template-columns:repeat(6,1fr);
+    grid-template-columns:repeat(4,1fr);
     gap:8px;
   }
   .chapters button{
@@ -596,25 +568,21 @@
 
 <section class="divider-top video-section" id="demo">
   <div class="wrap">
-    <h2 class="eyebrow-free-title">실제 Photoshop 화면으로 보세요</h2>
-    <p class="section-lead">꽃잎 다섯 장을 모두 같은 명도(L* 72)에서 색만 바꿔 칠했습니다. 마지막에 명도 채널만 켜 보면, 색이 다른 꽃잎이 전부 같은 회색입니다.</p>
+    <h2 class="eyebrow-free-title">한 톤 그림에 색을 더해도, 이질감 없이</h2>
+    <p class="section-lead">갈색 한 톤으로 칠한 얼굴에 보라 그림자, 붉은 혈색, 금빛 하이라이트, 청록 반사광을 더했습니다. 보통 피커로 고른 색은 명도가 제각각이라 얼룩처럼 떠 보이지만, 그 자리 명도 그대로 색만 더하면 그림에 자연스럽게 녹아듭니다.</p>
 
     <div class="video-frame">
-      <video id="demo-video" muted loop playsinline preload="metadata" poster="media/sha-paint-demo-poster.jpg" aria-label="SHA Paint 실제 사용 화면 녹화">
-        <source src="media/sha-paint-demo.mp4" type="video/mp4">
+      <video id="demo-video" muted loop playsinline preload="metadata" poster="media/sha-paint-portrait-ko-poster.jpg" aria-label="한 톤 인물화에 같은 명도로 색을 더했을 때와 보통 피커로 색을 얹었을 때의 비교 영상">
+        <source src="media/sha-paint-portrait-ko.mp4" type="video/mp4">
       </video>
-      <p class="video-cap" id="demo-cap"></p>
-      <span class="video-badge">실제 화면 녹화</span>
     </div>
     <ol class="chapters" id="demo-chapters">
-      <li><button type="button" data-t="0"><span class="n">1</span>펜 옆에 팔레트 띄우기<span class="bar"></span></button></li>
-      <li><button type="button" data-t="6.7" class="key"><span class="n">2</span>밝기는 그대로, 색만 바꾸기<span class="bar"></span></button></li>
-      <li><button type="button" data-t="11.38"><span class="n">3</span>같은 명도에서 어울리는 색<span class="bar"></span></button></li>
-      <li><button type="button" data-t="15.65"><span class="n">4</span>고른 색은 클릭 한 번에 다시<span class="bar"></span></button></li>
-      <li><button type="button" data-t="21.65"><span class="n">5</span>칠했다 지웠다 없이 바로 채색<span class="bar"></span></button></li>
-      <li><button type="button" data-t="28.71" class="key"><span class="n">6</span>흑백으로 보면 꽃잎이 전부 같은 회색<span class="bar"></span></button></li>
+      <li><button type="button" data-t="0"><span class="n">1</span>한 톤이라 밋밋한 얼굴<span class="bar"></span></button></li>
+      <li><button type="button" data-t="2.6"><span class="n">2</span>보통 피커: 얼룩처럼 뜸<span class="bar"></span></button></li>
+      <li><button type="button" data-t="6.0"><span class="n">3</span>같은 명도로 색 더하기<span class="bar"></span></button></li>
+      <li><button type="button" data-t="10.45"><span class="n">4</span>흑백은 원본과 똑같음<span class="bar"></span></button></li>
     </ol>
-    <p class="video-note">실제 앱 화면을 녹화했습니다(마우스로 촬영, 칠하는 구간은 빠르게 재생). 장면을 누르면 그 부분으로 이동합니다.</p>
+    <p class="video-note">SHA Paint의 명도(L*) 계산으로 색을 더한 연출 영상입니다. 실제 앱은 이 원리로 같은 명도의 색을 골라 주는 팔레트이며, 그림에 색을 자동으로 칠하는 기능은 아닙니다. 장면을 누르면 그 부분으로 이동합니다.</p>
   </div>
 </section>
 
@@ -826,14 +794,12 @@
 </footer>
 
 <script>
-// 실제 화면 데모: 화면에 보일 때만 재생, 장면 자막/목록 동기화, 장면 클릭 시 이동
+// 데모 영상: 화면에 보일 때만 재생, 장면 목록 동기화, 장면 클릭 시 이동
 (() => {
   const v = document.getElementById("demo-video");
   if (!v) return;
-  const cap = document.getElementById("demo-cap");
   const btns = [...document.querySelectorAll("#demo-chapters button")];
   const starts = btns.map((b) => +b.dataset.t);
-  const label = (b) => b.childNodes[1].textContent;
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
   let wanted = !reduce;
   if (reduce) v.controls = true;
@@ -845,8 +811,6 @@
       b.classList.toggle("on", k === i);
       b.querySelector(".bar").style.width = k === i && end > starts[i] ? ((t - starts[i]) / (end - starts[i]) * 100) + "%" : "0";
     });
-    const txt = label(btns[i]);
-    if (cap.textContent !== txt) cap.textContent = txt;
   };
   v.addEventListener("timeupdate", sync);
   v.addEventListener("loadedmetadata", sync);

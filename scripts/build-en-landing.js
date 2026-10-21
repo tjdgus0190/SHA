@@ -70,25 +70,21 @@ const body = `<body>
 
 <section class="divider-top video-section" id="demo">
   <div class="wrap">
-    <h2 class="eyebrow-free-title">See it in real Photoshop</h2>
-    <p class="section-lead">All five petals were painted at the same value (L* 72), changing only the color. Switch to the lightness channel at the end, and every petal turns the same gray.</p>
+    <h2 class="eyebrow-free-title">More color on a one-tone painting, nothing out of place</h2>
+    <p class="section-lead">We added violet shadows, a warm flush, golden highlights and teal bounce light to a face painted in a single brown tone. Colors from a normal picker each have their own value and look pasted on; adding only color at each spot's own value blends right into the painting.</p>
 
     <div class="video-frame">
-      <video id="demo-video" muted loop playsinline preload="metadata" poster="../media/sha-paint-demo-poster.jpg" aria-label="Screen recording of SHA Paint in use">
-        <source src="../media/sha-paint-demo.mp4" type="video/mp4">
+      <video id="demo-video" muted loop playsinline preload="metadata" poster="../media/sha-paint-portrait-en-poster.jpg" aria-label="Comparison of adding colors at the same value versus with a normal picker on a one-tone portrait">
+        <source src="../media/sha-paint-portrait-en.mp4" type="video/mp4">
       </video>
-      <p class="video-cap" id="demo-cap"></p>
-      <span class="video-badge">Real screen recording</span>
     </div>
     <ol class="chapters" id="demo-chapters">
-      <li><button type="button" data-t="0"><span class="n">1</span>Open the palette by your pen<span class="bar"></span></button></li>
-      <li><button type="button" data-t="6.7" class="key"><span class="n">2</span>Same value, change only the color<span class="bar"></span></button></li>
-      <li><button type="button" data-t="11.38"><span class="n">3</span>Colors that fit at the same value<span class="bar"></span></button></li>
-      <li><button type="button" data-t="15.65"><span class="n">4</span>Reuse picked colors in one click<span class="bar"></span></button></li>
-      <li><button type="button" data-t="21.65"><span class="n">5</span>Paint straight away, no trial strokes<span class="bar"></span></button></li>
-      <li><button type="button" data-t="28.71" class="key"><span class="n">6</span>In grayscale, every petal is the same gray<span class="bar"></span></button></li>
+      <li><button type="button" data-t="0"><span class="n">1</span>A flat, one-tone face<span class="bar"></span></button></li>
+      <li><button type="button" data-t="2.6"><span class="n">2</span>Normal picker: looks pasted<span class="bar"></span></button></li>
+      <li><button type="button" data-t="6.0"><span class="n">3</span>Add color at the same value<span class="bar"></span></button></li>
+      <li><button type="button" data-t="10.45"><span class="n">4</span>Grayscale matches the original<span class="bar"></span></button></li>
     </ol>
-    <p class="video-note">Recorded from the real app (captured with a mouse; painting parts are sped up). Click a step to jump to it.</p>
+    <p class="video-note">A simulation made with SHA Paint's lightness (L*) math. The app itself is a palette that lets you pick colors at the same value; it doesn't paint colors onto your image automatically. Click a step to jump to it.</p>
   </div>
 </section>
 
@@ -303,14 +299,12 @@ const body = `<body>
 </footer>
 
 <script>
-// 실제 화면 데모: 화면에 보일 때만 재생, 장면 자막/목록 동기화, 장면 클릭 시 이동
+// 데모 영상: 화면에 보일 때만 재생, 장면 목록 동기화, 장면 클릭 시 이동
 (() => {
   const v = document.getElementById("demo-video");
   if (!v) return;
-  const cap = document.getElementById("demo-cap");
   const btns = [...document.querySelectorAll("#demo-chapters button")];
   const starts = btns.map((b) => +b.dataset.t);
-  const label = (b) => b.childNodes[1].textContent;
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
   let wanted = !reduce;
   if (reduce) v.controls = true;
@@ -322,8 +316,6 @@ const body = `<body>
       b.classList.toggle("on", k === i);
       b.querySelector(".bar").style.width = k === i && end > starts[i] ? ((t - starts[i]) / (end - starts[i]) * 100) + "%" : "0";
     });
-    const txt = label(btns[i]);
-    if (cap.textContent !== txt) cap.textContent = txt;
   };
   v.addEventListener("timeupdate", sync);
   v.addEventListener("loadedmetadata", sync);
