@@ -79,6 +79,7 @@ python scripts/pack-plugin.py       # uxp-plugin 수정 후 번들 .ccx 재패�
 - `cd app && npm install && npx electron-builder --win --x64` → `app/dist/SHAPaintSetup-1.0.0.exe`
 - 이 PC 첫 빌드 때 winCodeSign 캐시 압축 해제가 심볼릭 링크 권한으로 실패함 → `%LOCALAPPDATA%\electron-builder\Cache\winCodeSign\winCodeSign-2.6.0`에 7za로 `-xr!darwin` 제외 후 직접 풀면 해결.
 - 빌드 후 변경점은 `app/README.md` 맨 위에 버전 항목 추가.
+- (클라우드/Linux 확인용) i386 아키텍처 추가 후 `apt install wine64 wine32:i386`, 새 `WINEPREFIX`로 `npx electron-builder --win --x64`하면 인스톨러가 만들어진다(끝의 `reading 'channel'` 오류는 저장소 감지 실패로 생기는 업데이트 정보 단계라 무시). Xvfb+xdotool로 설치 화면 캡처 가능. 출시본은 Windows PC에서 빌드.
 
 ## 영상/이미지 렌더링 (새 PC 셋업)
 렌더 도구는 저장소에 없다. 프로젝트 밖 아무 폴더에 설치하고 경로를 환경변수로 준다:

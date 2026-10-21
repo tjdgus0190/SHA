@@ -17,7 +17,13 @@
 - 설정 창 380x320 → 내용 400x620(예전에도 넘쳐서 스크롤됐음), 라이선스 창 내용 420x270,
   상태 패널 기본 폭 420 → 460(영어 "Middle click"), 넘치면 트리거 라벨 말줄임.
 - **인스톨러**: 한국어/영어 다국어 인스톨러(`multiLanguageInstaller: true`,
-  `installerLanguages: ko_KR, en_US`). 라이선스 키 페이지 문구는 `$LANGUAGE`(1042=한국어)로 선택.
+  `installerLanguages: ko_KR, en_US`). 선택 창 없이 Windows 언어로 자동 결정(한국어 외엔 영어).
+  라이선스 키 페이지 문구는 `$LANGUAGE`(1042=한국어)로 선택.
+- 라이선스 키 페이지 머리말이 이전 페이지("설치 옵션 선택") 그대로 남던 문제 수정(제목/부제를 직접 설정),
+  안내 문구 "다음을 누르면" → 실제 버튼인 "설치를 누르면".
+- 검증: Linux + wine에서 electron-builder로 실제 인스톨러를 빌드해 영어/한국어 로캘로 실행·캡처함
+  (라이선스 페이지, 키 길이 오류, 네트워크 오류 대화상자). Electron 앱도 Linux에서 language=en으로 실행해
+  라이선스 창이 영어로 뜨는 것까지 확인. Windows 실기·Photoshop 연동은 미확인.
 - **Photoshop 패널(UXP)**: Photoshop UI 언어(`uxp.host.uiLocale`)가 한국어면 한국어, 그 외엔 영어.
   번들 `.ccx` 재패키징됨.
 - `scripts/verify.js`: 화면에서 쓰는 i18n 키가 ko/en 둘 다 있는지, HTML에 번역 안 된 한글이 남았는지 검사.
