@@ -8,10 +8,10 @@
   <div class="panel">
     <div class="top-bar" id="dragHandle">
       <div class="top-icons">
-        <button id="fullGamutBtn" class="icon-btn" title="전체 색역 보기 전환">
+        <button id="fullGamutBtn" class="icon-btn" data-i18n-title="popup.fullGamut">
           <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M12 2a10 10 0 100 20 10 10 0 000-20zm0 2a8 8 0 018 8h-8V4zm-2 0v8H2a8 8 0 018-8zm-8 10h8v8a8 8 0 01-8-8zm10 8v-8h8a8 8 0 01-8 8z"/></svg>
         </button>
-        <button id="closeBtn" class="icon-btn" title="팔레트 닫기 (F11 / Esc)">
+        <button id="closeBtn" class="icon-btn" data-i18n-title="popup.close">
           <svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M6.4 5 12 10.6 17.6 5 19 6.4 13.4 12 19 17.6 17.6 19 12 13.4 6.4 19 5 17.6 10.6 12 5 6.4z"/></svg>
         </button>
       </div>
@@ -41,7 +41,7 @@
       <div class="history-row" id="historyRow"></div>
     </div>
 
-    <div id="applyFailedBanner" class="apply-failed-banner" hidden>⚠ 색 적용 실패 — 다시 시도해주세요</div>
+    <div id="applyFailedBanner" class="apply-failed-banner" hidden data-i18n="popup.applyFailed"></div>
   </div>
   <script src="overlay.js"></script>
 </body>

@@ -36,6 +36,7 @@ const comBridge = process.platform === "darwin"
   : require("./com-bridge.js");
 const { loadConfig, saveConfig } = require("./config.js");
 const { createLicensing } = require("./licensing.js");
+const i18n = require("./i18n.js");
 const {
   rgbToLab,
   relativeLuminance,
@@ -247,14 +248,12 @@ const WS_PORT = 51837;
 const POPUP_WIDTH = 300;
 const POPUP_HEIGHT = 340;
 const LEFT_MOUSE_BUTTON = 1;   // uiohook-napi 규약: 1=좌클릭 (브러시가 쓰는 바로 그 클릭). 실제 테스트로 확인됨.
-// 사람이 읽을 수 있는 마우스 버튼 이름. 3(중클릭)은 실제 테스트로 확인된
-// 값이고, 1/2는 관례상의 추정이다 — 녹화 후 라벨이 이상하면 알려주세요.
-const MOUSE_BUTTON_NAMES = { 1: "좌클릭", 2: "우클릭", 3: "중클릭" };
-
+// 사람이 읽을 수 있는 마우스 버튼 이름(i18n mouse.1~3). 3(중클릭)은 실제
+// 테스트로 확인된 값이고, 1/2는 관례상의 추정이다 — 녹화 후 라벨이 이상하면 알려주세요.
 function triggerLabel(trigger) {
   if (!trigger) return "-";
   if (trigger.type === "mouse") {
-    return MOUSE_BUTTON_NAMES[trigger.code] || `마우스 버튼 ${trigger.code}`;
+    return [1, 2, 3].includes(trigger.code) ? i18n.t(`mouse.${trigger.code}`) : i18n.t("mouse.n", { n: trigger.code });
   }
   const entry = Object.entries(UiohookKey).find(([, code]) => code === trigger.code);
   return entry ? entry[0] : `code:${trigger.code}`;
@@ -417,7 +416,7 @@ function createOverlayWindow() {
 // 수 있다. 이제 클릭 추적 모드 기본값이 ON이라, 대부분은 이 패널을
 // 보기만 하고 특별히 끌 필요가 있을 때만 클릭하면 된다.
 // ---------------------------------------------------------------------
-const STATUS_PANEL_WIDTH = 420; // 콘텐츠 실측(트리거 라벨이 길 때 최악의 경우 ~376px) + 여유
+const STATUS_PANEL_WIDTH = 460; // 콘텐츠 실측(한국어 최악 ~376px, 영어 "Middle click"이면 더 김) + 여유. 넘치면 트리거 라벨이 말줄임됨
 const STATUS_PANEL_HEIGHT = 56;
 // 단축키 편집 행 4개(팝업표시/활성화전환/트리거/트리거닫기) + 힌트가
 // 펼쳐졌을 때 높이. 자동 백그라운드 트리거/재연결 버튼은 UXP 패널이
@@ -1009,10 +1008,13 @@ function startInputHook() {
 function createSettingsWindow() {
   if (settingsWin && !settingsWin.isDestroyed()) { settingsWin.show(); settingsWin.focus(); return; }
   settingsWin = new BrowserWindow({
-    width: 380,
-    height: 320,
+    // 내용 크기 기준(useContentSize). 예전 380x320은 한국어로도 내용이 넘쳐 스크롤됐고,
+    // 영어 문구가 더 길어서 내용 전체가 보이도록 키웠다.
+    width: 400,
+    height: 620,
+    useContentSize: true,
     resizable: false,
-    title: "SHA Paint 설정",
+    title: i18n.t("win.settings"),
     webPreferences: { preload: path.join(__dirname, "settings-preload.js"), contextIsolation: true, sandbox: false }
   });
   settingsWin.setMenuBarVisibility(false);
@@ -1032,8 +1034,10 @@ ipcMain.on("settings-stop-recording", () => {
   recordingRequestSender = null;
 });
 ipcMain.on("settings-save", (_evt, newConfig) => {
+  const prevLanguage = config.language;
   config = { ...config, ...newConfig };
   saveConfig(app, config);
+  if (newConfig.language && newConfig.language !== prevLanguage) { restartForLanguage(); return; }
   settingsRecordingTarget = null;
   console.log("[overlay] 설정 저장됨:", config);
   // 패널에서 저장했든 설정 창에서 저장했든, 다른 쪽이 동시에 열려있으면
@@ -1041,6 +1045,7 @@ ipcMain.on("settings-save", (_evt, newConfig) => {
   notifyStatusPanel();
   notifySettingsWindow();
 });
+ipcMain.on("i18n-get-lang", (evt) => { evt.returnValue = i18n.getLang(); });
 ipcMain.handle("settings-key-label", (_evt, keycode) => {
   const entry = Object.entries(UiohookKey).find(([, code]) => code === keycode);
   return entry ? entry[0] : `code:${keycode}`;
@@ -1080,9 +1085,10 @@ function createLicenseWindow() {
   if (licenseWin && !licenseWin.isDestroyed()) { licenseWin.show(); licenseWin.focus(); return; }
   licenseWin = new BrowserWindow({
     width: 420,
-    height: 260,
+    height: 270,
+    useContentSize: true,
     resizable: false,
-    title: "SHA Paint 라이선스",
+    title: i18n.t("win.license"),
     webPreferences: { preload: path.join(__dirname, "license-preload.js"), contextIsolation: true, sandbox: false }
   });
   licenseWin.setMenuBarVisibility(false);
@@ -1131,17 +1137,37 @@ function quitApp(reason) {
   app.exit(0); // app.quit() 대신 확실한 종료를 위해 app.exit() 사용
 }
 
+// 언어를 바꾸면 창마다 다시 그리는 대신 앱을 다시 시작해서 적용한다.
+function restartForLanguage() {
+  console.log("[overlay] 언어 변경:", config.language, "-> 재시작");
+  app.relaunch();
+  quitApp("언어 변경으로 재시작");
+}
+
+function setLanguage(language) {
+  if (config.language === language) return;
+  config = { ...config, language };
+  saveConfig(app, config);
+  restartForLanguage();
+}
+
 function createTray() {
   tray = new Tray(path.join(__dirname, "icons", "tray.png"));
   tray.setToolTip("SHA Paint");
+  const lang = config.language || "auto";
   const menu = Menu.buildFromTemplate([
-    { label: "설정 (단축키 변경)...", click: () => createSettingsWindow() },
-    { label: "Photoshop 연결 테스트 (콘솔 확인)", click: () => comBridge.testConnection() },
-    { label: "로그 파일 열기...", click: () => { if (logFilePath) shell.openPath(logFilePath); } },
-    { label: "Photoshop 플러그인 설치...", click: () => openPluginInstaller() },
-    { label: "라이선스 키 입력...", click: () => createLicenseWindow() },
+    { label: i18n.t("tray.settings"), click: () => createSettingsWindow() },
+    { label: i18n.t("tray.testConnection"), click: () => comBridge.testConnection() },
+    { label: i18n.t("tray.openLog"), click: () => { if (logFilePath) shell.openPath(logFilePath); } },
+    { label: i18n.t("tray.installPlugin"), click: () => openPluginInstaller() },
+    { label: i18n.t("tray.license"), click: () => createLicenseWindow() },
+    { label: i18n.t("tray.language"), submenu: [
+      { label: i18n.t("tray.langAuto"), type: "radio", checked: lang === "auto", click: () => setLanguage("auto") },
+      { label: "한국어", type: "radio", checked: lang === "ko", click: () => setLanguage("ko") },
+      { label: "English", type: "radio", checked: lang === "en", click: () => setLanguage("en") }
+    ] },
     { type: "separator" },
-    { label: "종료", click: () => quitApp("사용자가 트레이 메뉴에서 종료") }
+    { label: i18n.t("tray.quit"), click: () => quitApp("사용자가 트레이 메뉴에서 종료") }
   ]);
   tray.setContextMenu(menu);
 
@@ -1168,8 +1194,10 @@ if (gotSingleInstanceLock) {
   app.whenReady().then(() => {
   setupFileLogging();
   config = loadConfig(app);
+  i18n.setLang(i18n.resolveLang(config.language, app.getLocale()));
+  console.log(`[overlay] 언어: ${i18n.getLang()} (설정=${config.language}, OS=${app.getLocale()})`);
   loadHistory();
-  licensing = createLicensing({ userDataDir: app.getPath("userData"), log: console });
+  licensing = createLicensing({ userDataDir: app.getPath("userData"), log: console, tr: i18n.t });
   refreshLicense();
   setInterval(() => refreshLicense(), LICENSE_RECHECK_MS);
   createOverlayWindow();

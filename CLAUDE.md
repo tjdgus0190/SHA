@@ -17,12 +17,12 @@ Photoshop 오버레이 팔레트. Lab L*(명도)를 고정한 채 색상/채도�
   - `docs/ad-video/real-demo/` 실제 Photoshop+SHA Paint 화면 녹화 편집본(36초, 마우스 자동조작으로 촬영)
   - `docs/store/` Gumroad 표지/썸네일(한/영), 상품 설명(`gumroad-description.md`, 영+한), 영문 카피 검토 메모
   - `docs/brand/instagram/` 인스타 프로필 사진, `docs/pricing.md`, `docs/sales-channels.md`
-- **앱 버전**: `app/README.md` 맨 위(최신 v8.9). UXP 플러그인 1.1.0(ID `com.shastudio.shapaint`).
+- **앱 버전**: `app/README.md` 맨 위(최신 v9.0 — 한국어/영어 화면, 아직 빌드·실기 확인 전. 출시본은 v8.9). UXP 플러그인 1.1.0(ID `com.shastudio.shapaint`).
 - **사용자 결정 사항**: 코드 서명 안 함(SmartScreen 경고는 FAQ로 안내). 랜딩/광고에 약속성 문구 금지(평생 업데이트, Mac 예정, 무조건 환불 등). Mac 버전은 보류.
 
 ## 다음 할 일 후보
 - 실제 와콤 펜으로 검정 전환 수정 검증(사용자 PC에 와콤 없음 → 베타 테스터 로그 `[uxp]`, `[license]` 줄로 분석)
-- 앱 UI 영문화(설치 화면·메뉴·설정이 한국어 — 해외 판매 걸림돌, 영문 FAQ에 고지 중)
+- 영문화 v9.0 빌드·실기 확인 후 Gumroad 업로드, 영문 FAQ("설치/메뉴/설정이 한국어") 문구 수정
 - 인스타 광고 성과(CTR) 보고 15초 광고 개선 / 할인 코드(INSTA 전용) 검토
 - Esc로 팝업 안 닫힘(× 버튼으로 우회), 패널 위치 기억
 
@@ -57,6 +57,7 @@ Photoshop 오버레이 팔레트. Lab L*(명도)를 고정한 채 색상/채도�
 - 사용자는 UXP Developer Tool을 안 씀 → 언팩된 플러그인 폴더를 덮어쓰기로 배포(번들 `.ccx`는 인스톨러가 엶).
 
 ## 함정
+- 화면 문구는 `app/i18n.js`(ko/en)에만 추가하고 HTML엔 `data-i18n="키"`를 붙인다. `verify.js`가 키 누락·번역 안 된 한글을 잡는다. UXP 패널 문구는 `uxp-plugin/index.js`의 `UI_STR`.
 - `PS_SCRIPT`는 JS 템플릿 리터럴. `${...}`는 JS 보간(허용: `TCP_PORT`, `LOOP_INTERVAL_MS`). PowerShell 변수는 `$($var)`. 백틱 금지.
 - Photoshop 디스크립터 RGB 초록 키는 `grain`. 펜 사용 중 전경색 **재조회는 신뢰 불가**.
 - 단일 인스턴스 락 있음. 로그가 이상하면 중복 실행 의심.
@@ -78,6 +79,7 @@ python scripts/pack-plugin.py       # uxp-plugin 수정 후 번들 .ccx 재패�
 - `cd app && npm install && npx electron-builder --win --x64` → `app/dist/SHAPaintSetup-1.0.0.exe`
 - 이 PC 첫 빌드 때 winCodeSign 캐시 압축 해제가 심볼릭 링크 권한으로 실패함 → `%LOCALAPPDATA%\electron-builder\Cache\winCodeSign\winCodeSign-2.6.0`에 7za로 `-xr!darwin` 제외 후 직접 풀면 해결.
 - 빌드 후 변경점은 `app/README.md` 맨 위에 버전 항목 추가.
+- (클라우드/Linux 확인용) i386 아키텍처 추가 후 `apt install wine64 wine32:i386`, 새 `WINEPREFIX`로 `npx electron-builder --win --x64`하면 인스톨러가 만들어진다(끝의 `reading 'channel'` 오류는 저장소 감지 실패로 생기는 업데이트 정보 단계라 무시). Xvfb+xdotool로 설치 화면 캡처 가능. 출시본은 Windows PC에서 빌드.
 
 ## 영상/이미지 렌더링 (새 PC 셋업)
 렌더 도구는 저장소에 없다. 프로젝트 밖 아무 폴더에 설치하고 경로를 환경변수로 준다:

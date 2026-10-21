@@ -51,5 +51,26 @@ if (pidJs !== pidNsh) bad(`상품 ID 불일치: licensing.js="${pidJs}" / instal
 else ok('licensing.js와 installer.nsh의 Gumroad 상품 ID 일치');
 if (/const GUMROAD_PRODUCT_ID = "";/.test(lic)) console.log('WARN licensing.js GUMROAD_PRODUCT_ID가 비어 있음 — 라이선스 확인이 꺼진 개발 모드. 출시 빌드 전에 설정 필요');
 
+// 화면 문구(i18n): HTML의 data-i18n*와 코드의 t("...")가 쓰는 키가 ko/en 둘 다에 있는지,
+// 화면 HTML에 번역 안 된 한글이 남아 있지 않은지(주석·<style> 제외)
+const { STRINGS } = require(path.join(appDir, 'i18n.js'));
+const used = new Set();
+for (const f of fs.readdirSync(appDir).filter((f) => /\.(js|html)$/.test(f) && f !== 'i18n.js')) {
+  const src = fs.readFileSync(path.join(appDir, f), 'utf8');
+  for (const m of src.matchAll(/data-i18n(?:-title|-placeholder)?="([\w.]+)"/g)) used.add(m[1]);
+  for (const m of src.matchAll(/\b(?:i18n\.)?t\(\s*["'`]([a-z]+\.[\w.]+)["'`]/g)) used.add(m[1]);
+  for (const m of src.matchAll(/i18n\.t\(`(mouse)\.\$\{/g)) ['mouse.1', 'mouse.2', 'mouse.3'].forEach((k) => used.add(k));
+  if (f.endsWith('.html')) {
+    const visible = src.replace(/<!--[\s\S]*?-->/g, '').replace(/<style[\s\S]*?<\/style>/g, '').replace(/<option value="ko">한국어<\/option>/g, '');
+    const left = visible.split('\n').filter((l) => /[가-힣]/.test(l) && !/data-i18n/.test(l));
+    if (left.length) bad(`${f}: data-i18n 없이 남은 한글 ${left.length}줄 — ${left[0].trim().slice(0, 60)}`);
+  }
+}
+const missingKeys = [...used].filter((k) => !STRINGS.ko[k] || !STRINGS.en[k]);
+if (missingKeys.length) bad('i18n 키 누락(ko/en): ' + missingKeys.join(', '));
+else ok(`i18n: 화면에서 쓰는 키 ${used.size}개 모두 ko/en에 있음`);
+const onlyOne = Object.keys(STRINGS.ko).filter((k) => !STRINGS.en[k]).concat(Object.keys(STRINGS.en).filter((k) => !STRINGS.ko[k]));
+if (onlyOne.length) bad('i18n: 한쪽 언어에만 있는 키: ' + onlyOne.join(', '));
+
 console.log(fail ? `\n${fail}건 실패` : '\n전부 통과');
 process.exit(fail ? 1 : 0);

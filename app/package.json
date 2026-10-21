@@ -21,7 +21,7 @@
     "appId": "com.shastudio.shapaint",
     "copyright": "Copyright © 2026 SHA Studio",
     "productName": "SHA Paint",
-    "files": ["main.js", "com-bridge.js", "mac-bridge.js", "preload.js", "overlay.html", "overlay.js", "overlay.css", "colorMath.js", "settings.html", "settings.js", "settings-preload.js", "settings.css", "config.js", "status-panel.html", "status-panel.js", "status-preload.js", "licensing.js", "license.html", "license-window.js", "license-preload.js", "icons/*"],
+    "files": ["main.js", "com-bridge.js", "mac-bridge.js", "preload.js", "overlay.html", "overlay.js", "overlay.css", "colorMath.js", "settings.html", "settings.js", "settings-preload.js", "settings.css", "config.js", "i18n.js", "status-panel.html", "status-panel.js", "status-preload.js", "licensing.js", "license.html", "license-window.js", "license-preload.js", "icons/*"],
     "extraResources": [
       { "from": "resources/sha-paint-plugin.ccx", "to": "sha-paint-plugin.ccx" }
     ],
@@ -45,8 +45,8 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": false,
       "include": "build/installer.nsh",
-      "language": "1042",
-      "multiLanguageInstaller": false,
+      "multiLanguageInstaller": true,
+      "installerLanguages": ["ko_KR", "en_US"],
       "perMachine": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,

@@ -1,4 +1,5 @@
-const { entrypoints } = require("uxp");
+const uxp = require("uxp");
+const { entrypoints } = uxp;
 const { app, action, core } = require("photoshop");
 const {
   rgbToLab,
@@ -46,17 +47,71 @@ const el = {};
 let fieldCtx = null;
 let dragging = false;
 
+// ---------------- 화면 문구(한국어/영어) ----------------
+// Photoshop UI 언어(uxp.host.uiLocale, 예: "ko_KR", "en_US")가 한국어면 한국어, 그 외엔 영어.
+// 로그(console)는 번역하지 않는다.
+const UI_LANG = (() => {
+  try { return /^ko/i.test((uxp.host && uxp.host.uiLocale) || "") ? "ko" : "en"; } catch (e) { return "en"; }
+})();
+const UI_STR = {
+  ko: {
+    eyedropperTitle: "스포이드 모드로 전환 (단축키 배정 가능)",
+    modeTitle: "모드 전환: Lab L* / 상대휘도 Y",
+    refreshTitle: "전경색 기준으로 새로고침",
+    hint: "필드 드래그: 색상/채도 선택 &nbsp;|&nbsp; 슬라이더 드래그: 명도 &nbsp;|&nbsp; 스포이드 아이콘(또는 배정한 단축키): 찍은 색 기준 자동 갱신 &nbsp;|&nbsp; <b>Edit &gt; Keyboard Shortcuts &gt; Plugins</b>에서 hue/chroma 단축키도 계속 사용 가능",
+    noCanvas: "캔버스 2D 컨텍스트를 가져오지 못했습니다 (환경 제약 가능성)",
+    canvasInitFailed: "캔버스 초기화 실패:\n",
+    readFgFailed: "전경색을 읽지 못했습니다.",
+    applyFgFailed: "전경색 적용 실패: ",
+    eyedropperOn: "스포이드 모드 — 캔버스를 클릭해 색을 추출하세요",
+    eyedropperFailed: "스포이드 전환 실패: ",
+    brushBack: "브러시 도구로 복귀했습니다",
+    brushFailed: "브러시 전환 실패: ",
+    renderError: "필드 렌더링 오류:\n",
+    stepError: "{name} 오류: "
+  },
+  en: {
+    eyedropperTitle: "Switch to eyedropper mode (you can assign a shortcut)",
+    modeTitle: "Switch mode: Lab L* / relative luminance Y",
+    refreshTitle: "Refresh from the foreground color",
+    hint: "Drag the field: hue/chroma &nbsp;|&nbsp; Drag the slider: lightness &nbsp;|&nbsp; Eyedropper icon (or your shortcut): update from the sampled color &nbsp;|&nbsp; Hue/chroma shortcuts still work via <b>Edit &gt; Keyboard Shortcuts &gt; Plugins</b>",
+    noCanvas: "Couldn't get the canvas 2D context (the environment may not support it)",
+    canvasInitFailed: "Canvas setup failed:\n",
+    readFgFailed: "Couldn't read the foreground color.",
+    applyFgFailed: "Couldn't apply the foreground color: ",
+    eyedropperOn: "Eyedropper mode — click the canvas to sample a color",
+    eyedropperFailed: "Couldn't switch to the eyedropper: ",
+    brushBack: "Switched back to the brush tool",
+    brushFailed: "Couldn't switch to the brush: ",
+    renderError: "Field rendering error:\n",
+    stepError: "{name} error: "
+  }
+};
+function tr(key, vars) {
+  let s = UI_STR[UI_LANG][key] || UI_STR.ko[key] || key;
+  if (vars) s = s.replace(/\{(\w+)\}/g, (m, k) => (vars[k] !== undefined ? String(vars[k]) : m));
+  return s;
+}
+function applyStaticText() {
+  const set = (id, prop, key) => { const e = document.getElementById(id); if (e) e[prop] = tr(key); };
+  set("eyedropperBtn", "title", "eyedropperTitle");
+  set("modeBtn", "title", "modeTitle");
+  set("refreshBtn", "title", "refreshTitle");
+  set("hintText", "innerHTML", "hint");
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   cacheEls();
+  applyStaticText();
   try {
     fieldCtx = el.fieldCanvas.getContext("2d");
     if (!fieldCtx) {
       console.error("[LuminancePicker] canvas.getContext('2d')가 null/undefined를 반환함");
-      showFieldError("캔버스 2D 컨텍스트를 가져오지 못했습니다 (환경 제약 가능성)");
+      showFieldError(tr("noCanvas"));
     }
   } catch (e) {
     console.error("[LuminancePicker] getContext 호출 자체가 실패", e);
-    showFieldError("캔버스 초기화 실패:\n" + (e && e.stack ? e.stack : String(e)));
+    showFieldError(tr("canvasInitFailed") + (e && e.stack ? e.stack : String(e)));
   }
   wireInteractions();
   state.ready = true;
@@ -208,7 +263,7 @@ function readForegroundColor() {
       return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
     }
   } catch (e) { console.warn("[LuminancePicker] fg hex fallback failed", e); }
-  showStatus("전경색을 읽지 못했습니다.", "error");
+  showStatus(tr("readFgFailed"), "error");
   return currentRgb();
 }
 
@@ -246,7 +301,7 @@ async function setForegroundColorInner(r, g, b) {
     return true;
   } catch (e2) {
     console.error("[LuminancePicker] all set strategies failed", e2);
-    showStatus("전경색 적용 실패: " + (e2 && e2.message ? e2.message : e2), "error");
+    showStatus(tr("applyFgFailed") + (e2 && e2.message ? e2.message : e2), "error");
     return false;
   }
 }
@@ -260,10 +315,10 @@ async function activateEyedropperTool() {
         { synchronousExecution: true }
       );
     }, { commandName: "Activate Eyedropper (SHA Paint)" });
-    showStatus("스포이드 모드 — 캔버스를 클릭해 색을 추출하세요", "ok");
+    showStatus(tr("eyedropperOn"), "ok");
   } catch (e) {
     console.error("[LuminancePicker] eyedropper 전환 실패", e);
-    showStatus("스포이드 전환 실패: " + (e && e.message ? e.message : e), "error");
+    showStatus(tr("eyedropperFailed") + (e && e.message ? e.message : e), "error");
   }
 }
 
@@ -277,10 +332,10 @@ async function activateBrushTool() {
         { synchronousExecution: true }
       );
     }, { commandName: "Activate Brush Tool (SHA Paint)" });
-    showStatus("브러시 도구로 복귀했습니다", "ok");
+    showStatus(tr("brushBack"), "ok");
   } catch (e) {
     console.error("[LuminancePicker] 브러시 도구 전환 실패", e);
-    showStatus("브러시 전환 실패: " + (e && e.message ? e.message : e), "error");
+    showStatus(tr("brushFailed") + (e && e.message ? e.message : e), "error");
   }
 }
 
@@ -354,7 +409,7 @@ function renderField() {
   } catch (e) {
     console.error("[LuminancePicker] renderField 실패", e);
     // 메시지 + 스택트레이스까지 화면에 그대로 노출 (콘솔 못 열어도 읽을 수 있게)
-    showFieldError("필드 렌더링 오류:\n" + (e && e.stack ? e.stack : String(e)));
+    showFieldError(tr("renderError") + (e && e.stack ? e.stack : String(e)));
     try {
       const w = el.fieldCanvas.width, h = el.fieldCanvas.height;
       fieldCtx.fillStyle = "rgb(120,120,120)";
@@ -408,7 +463,7 @@ function safeStep(name, fn) {
     fn();
   } catch (e) {
     console.error(`[LuminancePicker] renderAll 단계 실패: ${name}`, e);
-    showStatus(`${name} 오류: ` + (e && e.message ? e.message : e), "error");
+    showStatus(tr("stepError", { name }) + (e && e.message ? e.message : e), "error");
   }
 }
 

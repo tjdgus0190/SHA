@@ -137,6 +137,7 @@
       color: var(--text-dim);
       font-size: 11px;
       white-space: nowrap;
+      overflow: hidden;
     }
     .mode-group .trigger-value {
       color: var(--text);
@@ -145,6 +146,9 @@
       border: 1px solid var(--border);
       border-radius: 6px;
       padding: 3px 8px;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis; /* 창이 좁으면(영어 라벨 등) 톱니 버튼을 덮지 않고 말줄임 */
     }
 
     .gear-btn {
@@ -281,7 +285,7 @@
 </head>
 <body>
   <div class="panel" id="panel">
-    <div class="minimized-view" id="minimizedView" title="SHA Paint — 클릭해서 펼치기">
+    <div class="minimized-view" id="minimizedView" data-i18n-title="panel.expandTitle">
       <div class="dot" id="minimizedDot"></div>
     </div>
 
@@ -294,7 +298,7 @@
       <div class="divider"></div>
 
       <div class="toggle-group">
-        <span class="toggle-label">활성화</span>
+        <span class="toggle-label" data-i18n="panel.active">활성화</span>
         <label class="switch">
           <input type="checkbox" id="clickFollowToggle" />
           <span class="switch-track"><span class="switch-thumb"></span></span>
@@ -307,47 +311,47 @@
            섹션(단축키 편집)에서 녹화로 바꾼다. 여기는 지금 뭐가 지정돼
            있는지 보여주는 읽기 전용 표시. -->
       <div class="mode-group">
-        트리거 <span class="trigger-value" id="triggerValue">중클릭</span>
+        <span data-i18n="panel.trigger">트리거</span> <span class="trigger-value" id="triggerValue">-</span>
       </div>
 
-      <button class="gear-btn" id="gearBtn" title="단축키 편집">
+      <button class="gear-btn" id="gearBtn" data-i18n-title="panel.editShortcuts">
         <svg viewBox="0 0 24 24" width="15" height="15"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.5.5 0 00.12-.61l-1.92-3.32a.5.5 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.5.5 0 00-.5-.42h-3.84a.5.5 0 00-.5.42l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.5.5 0 00-.59.22L3.28 8.87a.5.5 0 00.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.5.5 0 00-.12.61l1.92 3.32c.12.22.39.3.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.26.42.5.42h3.84c.24 0 .46-.18.5-.42l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.49 0 .59-.22l1.92-3.32a.5.5 0 00-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
       </button>
-      <button class="minimize-btn" id="minimizeBtn" title="최소화">
+      <button class="minimize-btn" id="minimizeBtn" data-i18n-title="panel.minimize">
         <svg viewBox="0 0 24 24" width="15" height="15"><path fill="currentColor" d="M5 11h14v2H5z"/></svg>
       </button>
     </div>
 
     <div class="shortcuts" id="shortcuts">
       <div class="shortcut-row">
-        <span class="shortcut-label">팔레트 팝업 표시</span>
+        <span class="shortcut-label" data-i18n="panel.showPopup"></span>
         <div class="shortcut-value-group">
           <span class="shortcut-value" id="showPopupKeyValue">F11</span>
-          <button class="record-btn" id="recordShowPopupBtn" data-target="showPopupKey">변경</button>
+          <button class="record-btn" id="recordShowPopupBtn" data-target="showPopupKey" data-i18n="panel.change">변경</button>
         </div>
       </div>
       <div class="shortcut-row">
-        <span class="shortcut-label">활성화 전환</span>
+        <span class="shortcut-label" data-i18n="panel.clickFollow"></span>
         <div class="shortcut-value-group">
           <span class="shortcut-value" id="clickFollowKeyValue">F9</span>
-          <button class="record-btn" id="recordClickFollowBtn" data-target="clickFollowKey">변경</button>
+          <button class="record-btn" id="recordClickFollowBtn" data-target="clickFollowKey" data-i18n="panel.change">변경</button>
         </div>
       </div>
       <div class="shortcut-row">
-        <span class="shortcut-label">활성화 트리거 (키 또는 클릭)</span>
+        <span class="shortcut-label" data-i18n="panel.activationTrigger"></span>
         <div class="shortcut-value-group">
-          <span class="shortcut-value" id="activationTriggerValue">중클릭</span>
-          <button class="record-btn" id="recordActivationTriggerBtn" data-target="activationTrigger">변경</button>
+          <span class="shortcut-value" id="activationTriggerValue">-</span>
+          <button class="record-btn" id="recordActivationTriggerBtn" data-target="activationTrigger" data-i18n="panel.change">변경</button>
         </div>
       </div>
       <div class="shortcut-row">
-        <span class="shortcut-label">트리거를 다시 누르면 닫기</span>
+        <span class="shortcut-label" data-i18n="panel.triggerCloses"></span>
         <label class="switch">
           <input type="checkbox" id="triggerTogglesCloseToggle" />
           <span class="switch-track"><span class="switch-thumb"></span></span>
         </label>
       </div>
-      <div class="recording-hint" id="recordingHint" hidden>키 또는 마우스 버튼을 입력하세요... (Esc로 취소)</div>
+      <div class="recording-hint" id="recordingHint" hidden data-i18n="panel.recordingHint"></div>
     </div>
   </div>
   <script src="status-panel.js"></script>
