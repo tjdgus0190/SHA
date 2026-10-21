@@ -5,6 +5,7 @@
 // 색 고르는 장면은 거의 실제 속도, 칠하는 장면은 빠르게. 한국어 자막 + 엔드카드.
 //   set FFMPEG=<ffmpeg.exe 경로>   (없으면 PATH의 ffmpeg)
 //   node docs/ad-video/real-demo/edit.js
+//   node docs/ad-video/real-demo/edit.js --web   (랜딩페이지용 자막 없는 본편 → site/media/)
 const fs = require("fs");
 const path = require("path");
 const { spawnSync } = require("child_process");
@@ -103,6 +104,31 @@ function build(kind) {
     `fade=t=in:st=0:d=0.35[end];`);
   lines.push(`[main][end]concat=n=2:v=1:a=0,format=yuv420p[out]`);
   return lines.join("\n");
+}
+
+// --web: 랜딩페이지용. 자막·배지·엔드카드 없이 본편만 1280x720으로 → site/media/
+// (자막은 페이지가 언어별로 HTML로 겹친다. 구간 시각은 아래 출력값을 site/index.html의 DEMO_CHAPTERS에 반영)
+if (process.argv.includes("--web")) {
+  const outDir = path.join(DIR, "..", "..", "..", "site", "media");
+  fs.mkdirSync(outDir, { recursive: true });
+  const lines = SEG.map(([a, b, sp], i) => `[0:v]trim=start=${a}:end=${b},setpts=(PTS-STARTPTS)/${sp},fps=30[s${i}];`);
+  lines.push(SEG.map((_, i) => `[s${i}]`).join("") + `concat=n=${SEG.length}:v=1:a=0[cat];`);
+  lines.push(`[cat]crop=1600:900:0:60,scale=1280:720:flags=lanczos,setsar=1,format=yuv420p[out]`);
+  const scriptPath = path.join(DIR, "filter-web.txt");
+  fs.writeFileSync(scriptPath, lines.join("\n"), "utf8");
+  const out = path.join(outDir, "sha-paint-demo.mp4");
+  let r = spawnSync(FF, ["-hide_banner", "-loglevel", "error", "-y", "-i", RAW,
+    "-filter_complex_script", scriptPath, "-map", "[out]", "-an",
+    "-c:v", "libx264", "-preset", "slow", "-crf", "24", "-profile:v", "high", "-pix_fmt", "yuv420p",
+    "-movflags", "+faststart", "-r", "30", out], { stdio: "inherit" });
+  if (r.status !== 0) { console.error("ffmpeg 실패: web"); process.exit(1); }
+  // 포스터: 마지막 흑백 장면 직전(꽃이 다 칠해진 컷)
+  r = spawnSync(FF, ["-hide_banner", "-loglevel", "error", "-y", "-ss", (groupRange[5][0] - 0.4).toFixed(2), "-i", out,
+    "-frames:v", "1", "-q:v", "4", path.join(outDir, "sha-paint-demo-poster.jpg")], { stdio: "inherit" });
+  fs.unlinkSync(scriptPath);
+  console.log("->", out);
+  console.log("구간(초):", JSON.stringify(Object.values(groupRange).map(([a, b]) => [+a.toFixed(2), +b.toFixed(2)])));
+  process.exit(0);
 }
 
 for (const kind of ["16x9", "9x16"]) {

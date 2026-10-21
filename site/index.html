@@ -475,6 +475,52 @@
     html{scroll-behavior:auto;}
     .sph .t-light,.sph .t-base,.sph .t-shadow{animation:none !important;}
   }
+
+  /* -------- 데모 영상(site/media, 언어별 자막이 들어간 16:9) + 장면 목록:
+     클릭하면 그 장면으로 이동, 재생 중인 장면을 표시한다. -------- */
+  .video-frame{
+    margin-top:40px;
+    position:relative;
+    border-radius:14px;
+    overflow:hidden;
+    border:1px solid var(--line);
+    background:#141317;
+    aspect-ratio:16/9;
+  }
+  .video-frame video{display:block;width:100%;height:100%;object-fit:cover;cursor:pointer;}
+  .chapters{
+    list-style:none;
+    margin:16px 0 0;
+    padding:0;
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:8px;
+  }
+  .chapters button{
+    width:100%;
+    height:100%;
+    text-align:left;
+    font:inherit;
+    font-size:13px;
+    line-height:1.45;
+    color:var(--ink-dim);
+    background:var(--bg-raised);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:10px 10px 12px;
+    cursor:pointer;
+    position:relative;
+    overflow:hidden;
+  }
+  .chapters button:hover{color:var(--ink);}
+  .chapters button .n{display:block;font-family:'Fraunces',serif;font-size:12px;color:var(--ink-faint);margin-bottom:2px;}
+  .chapters button .bar{position:absolute;left:0;bottom:0;height:3px;width:0;background:var(--gold);}
+  .chapters button.on{color:var(--ink);border-color:rgba(232,163,61,0.55);}
+  .chapters button.on .n{color:var(--gold);}
+  .video-note{margin-top:14px;font-size:13px;color:var(--ink-faint);}
+  @media (max-width:760px){
+    .chapters{grid-template-columns:repeat(2,1fr);}
+  }
 </style>
 </head>
 <body>
@@ -519,6 +565,26 @@
     </div>
   </div>
 </header>
+
+<section class="divider-top video-section" id="demo">
+  <div class="wrap">
+    <h2 class="eyebrow-free-title">한 톤 그림에 색을 더해도, 이질감 없이</h2>
+    <p class="section-lead">갈색 한 톤으로 칠한 얼굴에 보라 그림자, 붉은 혈색, 금빛 하이라이트, 청록 반사광을 더했습니다. 보통 피커로 고른 색은 명도가 제각각이라 얼룩처럼 떠 보이지만, 그 자리 명도 그대로 색만 더하면 그림에 자연스럽게 녹아듭니다.</p>
+
+    <div class="video-frame">
+      <video id="demo-video" muted loop playsinline preload="metadata" poster="media/sha-paint-portrait-ko-poster.jpg" aria-label="한 톤 인물화에 같은 명도로 색을 더했을 때와 보통 피커로 색을 얹었을 때의 비교 영상">
+        <source src="media/sha-paint-portrait-ko.mp4" type="video/mp4">
+      </video>
+    </div>
+    <ol class="chapters" id="demo-chapters">
+      <li><button type="button" data-t="0"><span class="n">1</span>한 톤이라 밋밋한 얼굴<span class="bar"></span></button></li>
+      <li><button type="button" data-t="2.6"><span class="n">2</span>보통 피커: 얼룩처럼 뜸<span class="bar"></span></button></li>
+      <li><button type="button" data-t="6.0"><span class="n">3</span>같은 명도로 색 더하기<span class="bar"></span></button></li>
+      <li><button type="button" data-t="10.45"><span class="n">4</span>흑백은 원본과 똑같음<span class="bar"></span></button></li>
+    </ol>
+    <p class="video-note">SHA Paint의 명도(L*) 계산으로 색을 더한 연출 영상입니다. 실제 앱은 이 원리로 같은 명도의 색을 골라 주는 팔레트이며, 그림에 색을 자동으로 칠하는 기능은 아닙니다. 장면을 누르면 그 부분으로 이동합니다.</p>
+  </div>
+</section>
 
 <section class="divider-top demo-section">
   <div class="wrap">
@@ -726,6 +792,38 @@
     <p>문의: tjdgus0190@naver.com</p>
   </div>
 </footer>
+
+<script>
+// 데모 영상: 화면에 보일 때만 재생, 장면 목록 동기화, 장면 클릭 시 이동
+(() => {
+  const v = document.getElementById("demo-video");
+  if (!v) return;
+  const btns = [...document.querySelectorAll("#demo-chapters button")];
+  const starts = btns.map((b) => +b.dataset.t);
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let wanted = !reduce;
+  if (reduce) v.controls = true;
+  const sync = () => {
+    const t = v.currentTime, d = v.duration || 0;
+    let i = 0; while (i + 1 < starts.length && t >= starts[i + 1]) i++;
+    const end = i + 1 < starts.length ? starts[i + 1] : d;
+    btns.forEach((b, k) => {
+      b.classList.toggle("on", k === i);
+      b.querySelector(".bar").style.width = k === i && end > starts[i] ? ((t - starts[i]) / (end - starts[i]) * 100) + "%" : "0";
+    });
+  };
+  v.addEventListener("timeupdate", sync);
+  v.addEventListener("loadedmetadata", sync);
+  btns.forEach((b) => b.addEventListener("click", () => { v.currentTime = +b.dataset.t + 0.05; wanted = true; v.play().catch(() => {}); sync(); }));
+  v.addEventListener("click", () => { if (v.paused) { wanted = true; v.play().catch(() => {}); } else { wanted = false; v.pause(); } });
+  if ("IntersectionObserver" in window) {
+    new IntersectionObserver((es) => es.forEach((e) => {
+      if (e.isIntersecting && wanted) v.play().catch(() => {}); else if (!e.isIntersecting) v.pause();
+    }), { threshold: 0.35 }).observe(v);
+  } else if (wanted) v.play().catch(() => {});
+  sync();
+})();
+</script>
 
 <script src="https://gumroad.com/js/gumroad.js"></script>
 

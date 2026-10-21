@@ -68,6 +68,26 @@ const body = `<body>
   </div>
 </header>
 
+<section class="divider-top video-section" id="demo">
+  <div class="wrap">
+    <h2 class="eyebrow-free-title">More color on a one-tone painting, nothing out of place</h2>
+    <p class="section-lead">We added violet shadows, a warm flush, golden highlights and teal bounce light to a face painted in a single brown tone. Colors from a normal picker each have their own value and look pasted on; adding only color at each spot's own value blends right into the painting.</p>
+
+    <div class="video-frame">
+      <video id="demo-video" muted loop playsinline preload="metadata" poster="../media/sha-paint-portrait-en-poster.jpg" aria-label="Comparison of adding colors at the same value versus with a normal picker on a one-tone portrait">
+        <source src="../media/sha-paint-portrait-en.mp4" type="video/mp4">
+      </video>
+    </div>
+    <ol class="chapters" id="demo-chapters">
+      <li><button type="button" data-t="0"><span class="n">1</span>A flat, one-tone face<span class="bar"></span></button></li>
+      <li><button type="button" data-t="2.6"><span class="n">2</span>Normal picker: looks pasted<span class="bar"></span></button></li>
+      <li><button type="button" data-t="6.0"><span class="n">3</span>Add color at the same value<span class="bar"></span></button></li>
+      <li><button type="button" data-t="10.45"><span class="n">4</span>Grayscale matches the original<span class="bar"></span></button></li>
+    </ol>
+    <p class="video-note">A simulation made with SHA Paint's lightness (L*) math. The app itself is a palette that lets you pick colors at the same value; it doesn't paint colors onto your image automatically. Click a step to jump to it.</p>
+  </div>
+</section>
+
 <section class="divider-top demo-section">
   <div class="wrap">
     <h2 class="eyebrow-free-title">Change the color, then look at it in grayscale</h2>
@@ -277,6 +297,38 @@ const body = `<body>
     ${CONTACT ? `<p>Contact: ${CONTACT}</p>` : ""}
   </div>
 </footer>
+
+<script>
+// 데모 영상: 화면에 보일 때만 재생, 장면 목록 동기화, 장면 클릭 시 이동
+(() => {
+  const v = document.getElementById("demo-video");
+  if (!v) return;
+  const btns = [...document.querySelectorAll("#demo-chapters button")];
+  const starts = btns.map((b) => +b.dataset.t);
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let wanted = !reduce;
+  if (reduce) v.controls = true;
+  const sync = () => {
+    const t = v.currentTime, d = v.duration || 0;
+    let i = 0; while (i + 1 < starts.length && t >= starts[i + 1]) i++;
+    const end = i + 1 < starts.length ? starts[i + 1] : d;
+    btns.forEach((b, k) => {
+      b.classList.toggle("on", k === i);
+      b.querySelector(".bar").style.width = k === i && end > starts[i] ? ((t - starts[i]) / (end - starts[i]) * 100) + "%" : "0";
+    });
+  };
+  v.addEventListener("timeupdate", sync);
+  v.addEventListener("loadedmetadata", sync);
+  btns.forEach((b) => b.addEventListener("click", () => { v.currentTime = +b.dataset.t + 0.05; wanted = true; v.play().catch(() => {}); sync(); }));
+  v.addEventListener("click", () => { if (v.paused) { wanted = true; v.play().catch(() => {}); } else { wanted = false; v.pause(); } });
+  if ("IntersectionObserver" in window) {
+    new IntersectionObserver((es) => es.forEach((e) => {
+      if (e.isIntersecting && wanted) v.play().catch(() => {}); else if (!e.isIntersecting) v.pause();
+    }), { threshold: 0.35 }).observe(v);
+  } else if (wanted) v.play().catch(() => {});
+  sync();
+})();
+</script>
 
 <script src="https://gumroad.com/js/gumroad.js"></script>
 

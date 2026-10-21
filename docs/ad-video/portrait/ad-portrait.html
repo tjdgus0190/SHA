@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<title>SHA Paint Portrait Ad</title>
+<!--
+  한 톤(갈색)으로 칠한 얼굴에 포인트 색을 더하는 15초 영상: "색은 다채롭게, 같은 명도라 이질감은 없이".
+    0.0–2.6   원본(한 톤) — 밋밋함
+    2.6–6.0   보통 피커로 고른 색을 얹음 → 얼룩처럼 뜸, 흑백으로 넘기면 명도가 달라진 곳이 빨갛게
+    6.0–10.4  SHA Paint: 그 자리 명도(L*) 그대로 보라 그림자 → 붉은 혈색 → 금빛 하이라이트 → 청록 반사광
+    10.4–12.2 흑백으로 넘겨도 원본과 같은 명암
+    12.2–15   엔드카드(원본/완성 비교)
+  - 이미지: frames-src/*.png (python lab.py 로 생성). 색 계산은 app/colorMath.js와 같은 식.
+  - ?ar=16x9 가로(사이트용), ?lang=en 영문, ?render=1 이면 window.__start() 후 renderAt(t)로 프레임 렌더
+-->
+<style>
+  @font-face { font-family: "KR"; src: local("Noto Sans KR"), local("NotoSansKR"), url("file:///C:/Windows/Fonts/NotoSansKR-VF.ttf"); font-weight: 100 900; }
+  @font-face { font-family: "KRFallback"; src: local("Malgun Gothic"), local("맑은 고딕"); }
+  @font-face { font-family: "Serif"; src: local("Noto Serif Bold"), local("NotoSerif-Bold"), url("file:///C:/Windows/Fonts/NotoSerif-Bold.ttf"); font-weight: 700; }
+  html, body { margin: 0; background: #1c1a1f; overflow: hidden; }
+  canvas { display: block; }
+</style>
+<script src="../../../app/colorMath.js"></script>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+(() => {
+"use strict";
+const CM = window.ColorMath;
+const P = new URLSearchParams(location.search);
+const LANG = P.get("lang") === "en" ? "en" : "ko";
+const WIDE = P.get("ar") === "16x9";
+const RENDER = P.get("render") === "1";
+const W = WIDE ? 1920 : 1080, H = WIDE ? 1080 : 1920, DURATION = 15;
+const cv = document.getElementById("c"); cv.width = W; cv.height = H;
+const ctx = cv.getContext("2d");
+
+const BG = "#1c1a1f", RAISED = "#242128", INK = "#f2ede4", DIM = "#a79f97", FAINT = "#75706b", GOLD = "#e8a33d", BAD = "#e2503f", GOOD = "#3fae72";
+const css = (c) => `rgb(${c.r},${c.g},${c.b})`;
+
+const T = {
+  ko: {
+    caps: [
+      { t0: 0.1, t1: 2.55, l1: "한 톤으로 칠한 얼굴,", l2: "조금 밋밋하죠?", sub: "색을 더 넣어 포인트를 주고 싶을 때" },
+      { t0: 2.65, t1: 5.95, l1: "보통 피커로 색을 얹으면", l2: "얼룩처럼 떠 보입니다", sub: "빨간 곳 = 명도(L*)가 달라져 형태가 깨진 자리" },
+      { t0: 6.05, t1: 8.35, l1: "SHA Paint는 그 자리 명도 그대로", l2: "색만 더합니다", sub: "보라 그림자 · 붉은 혈색 · 금빛 하이라이트" },
+      { t0: 8.45, t1: 10.35, l1: "색은 다채롭게,", l2: "이질감은 없이", sub: "같은 명도라 그림에 자연스럽게 녹아듭니다" },
+      { t0: 10.45, t1: 12.15, l1: "흑백으로 보면", l2: "원래 그림과 똑같습니다", sub: "입체감은 그대로, 색감만 풍부해졌습니다" }
+    ],
+    gray: "흑백", broken: "명암 달라짐", kept: "명암 그대로", popup: "L* 고정",
+    strokes: ["그림자 + 보라", "볼·귀 + 붉은 기", "하이라이트 + 금빛", "반사광 + 청록"],
+    before: "원본", after: "색 추가",
+    tag: "<같은 명도>라서, 어떤 색도 자연스럽게", meta: "$10 · 1회 결제 · Photoshop · Windows",
+    cta: "프로필 링크에서 구매", disc: "SHA Paint의 명도(L*) 계산으로 색을 더한 연출 화면"
+  },
+  en: {
+    caps: [
+      { t0: 0.1, t1: 2.55, l1: "A face painted in one tone,", l2: "a little flat?", sub: "When you want more color for impact" },
+      { t0: 2.65, t1: 5.95, l1: "Add colors with a normal picker", l2: "and they look pasted on", sub: "Red = where the lightness (L*) changed and broke the form" },
+      { t0: 6.05, t1: 8.35, l1: "SHA Paint keeps each spot's value", l2: "and adds only color", sub: "Violet shadows · warm flush · golden highlights" },
+      { t0: 8.45, t1: 10.35, l1: "More colorful,", l2: "never out of place", sub: "Same value, so it blends right into the painting" },
+      { t0: 10.45, t1: 12.15, l1: "In grayscale it's", l2: "identical to the original", sub: "Same depth, richer color" }
+    ],
+    gray: "Grayscale", broken: "Values shifted", kept: "Values kept", popup: "L* locked",
+    strokes: ["Shadow + violet", "Cheeks + warm red", "Highlight + gold", "Bounce + teal"],
+    before: "Original", after: "Color added",
+    tag: "<Same value>, any color fits", meta: "$10 · One-time · Photoshop · Windows",
+    cta: "Shop via link in bio", disc: "Simulated: colors added with SHA Paint's lightness (L*) math"
+  }
+}[LANG];
+
+// ---------------- 유틸 ----------------
+const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const eio = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+const eout = (x) => 1 - Math.pow(1 - x, 3);
+const back = (x) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+const lerp = (a, b, k) => a + (b - a) * k;
+const KR = (w, s) => `${w} ${s}px KR, KRFallback, sans-serif`;
+function rr(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
+function fitText(str, x, y, maxW, size, weight, color, align = "center") {
+  let s = size; ctx.font = KR(weight, s);
+  while (ctx.measureText(str).width > maxW && s > 18) { s -= 2; ctx.font = KR(weight, s); }
+  ctx.fillStyle = color; ctx.textAlign = align; ctx.fillText(str, x, y);
+}
+function richText(str, x, y, size, weight, base, accent, maxW, align = "center") {
+  const parts = str.split(/<|>/);
+  let s = size, widths, total;
+  do { ctx.font = KR(weight, s); widths = parts.map((p) => ctx.measureText(p).width); total = widths.reduce((q, v) => q + v, 0); s -= 2; } while (total > maxW && s > 20);
+  let cx = align === "center" ? x - total / 2 : x; ctx.textAlign = "left";
+  parts.forEach((p, i) => { ctx.fillStyle = i % 2 ? accent : base; ctx.fillText(p, cx, y); cx += widths[i]; });
+}
+function pill(text, x, y, bg, fg, size = 26, align = "center") {
+  ctx.font = KR(800, size); const w = ctx.measureText(text).width + size * 1.4, h = size * 1.9;
+  const x0 = align === "center" ? x - w / 2 : align === "right" ? x - w : x;
+  ctx.fillStyle = bg; rr(x0, y - h / 2, w, h, h / 2); ctx.fill();
+  ctx.fillStyle = fg; ctx.textAlign = "center"; ctx.fillText(text, x0 + w / 2, y + size * 0.36);
+}
+function lockIcon(x, y, s, color) {
+  ctx.save(); ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = s * 0.16;
+  ctx.beginPath(); ctx.arc(x, y - s * 0.12, s * 0.28, Math.PI, 0); ctx.lineTo(x + s * 0.28, y + s * 0.05); ctx.moveTo(x - s * 0.28, y + s * 0.05); ctx.lineTo(x - s * 0.28, y - s * 0.12); ctx.stroke();
+  rr(x - s * 0.42, y, s * 0.84, s * 0.6, s * 0.1); ctx.fill(); ctx.restore();
+}
+
+// ---------------- 레이아웃 ----------------
+const CROP = { sx: 0, sy: 0, sw: 1160, sh: 1360 };        // frames-src는 이미 얼굴~목으로 잘라 2배 확대됨
+const L9 = {
+  img: { x: 40, y: 470, w: 1000, h: 1172 },
+  inset: { x: 690, y: 1240, w: 330, h: 387 },
+  popup: { x: 690, y: 495, s: 1.15 },
+  cap: { x: W / 2, y1: 268, y2: 360, y3: 428, maxW: 1000, align: "center", s1: 62, s2: 82, s3: 32 },
+  disc: { x: W / 2, y: 1745 }
+};
+const L16 = {
+  img: { x: 70, y: 40, w: 853, h: 1000 },
+  inset: { x: 1000, y: 360, w: 400, h: 469 },
+  popup: { x: 1450, y: 360, s: 1.35 },
+  cap: { x: 1000, y1: 150, y2: 236, y3: 296, maxW: 860, align: "left", s1: 54, s2: 72, s3: 28 },
+  disc: { x: 1000, y: 1040 }
+};
+const LY = WIDE ? L16 : L9;
+
+// ---------------- 이미지 ----------------
+const IMG = {};
+const NAMES = ["orig", "gray", "naive", "naive-diff", "sha-1", "sha-2", "sha-3", "sha-4"];
+function load(n) { return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error("frames-src/" + n + ".png 없음 — python lab.py 먼저 실행")); i.src = "frames-src/" + n + ".png"; IMG[n] = i; }); }
+
+// 붓질처럼 대각선으로 쓸고 지나가는 전환(부드러운 경계)
+const off = document.createElement("canvas"), ox = off.getContext("2d");
+function drawWipe(a, b, k, r) {
+  ctx.drawImage(IMG[a], CROP.sx, CROP.sy, CROP.sw, CROP.sh, r.x, r.y, r.w, r.h);
+  if (k <= 0 || !b) return;
+  if (k >= 1) { ctx.drawImage(IMG[b], CROP.sx, CROP.sy, CROP.sw, CROP.sh, r.x, r.y, r.w, r.h); return; }
+  off.width = Math.ceil(r.w); off.height = Math.ceil(r.h);
+  ox.globalCompositeOperation = "source-over"; ox.clearRect(0, 0, off.width, off.height);
+  ox.drawImage(IMG[b], CROP.sx, CROP.sy, CROP.sw, CROP.sh, 0, 0, r.w, r.h);
+  // (0,0)→(w,h) 방향 그라디언트. 앞부분(p)까지는 새 그림, p~p+soft는 부드러운 붓 경계
+  const soft = 0.22, p = k * (1 + soft) - soft;
+  const gx = ox.createLinearGradient(0, 0, r.w, r.h);
+  gx.addColorStop(0, "rgba(0,0,0,1)");
+  if (p > 0) gx.addColorStop(clamp(p), "rgba(0,0,0,1)");
+  gx.addColorStop(clamp(p + soft), "rgba(0,0,0,0)");
+  gx.addColorStop(1, "rgba(0,0,0,0)");
+  ox.globalCompositeOperation = "destination-in"; ox.fillStyle = gx; ox.fillRect(0, 0, off.width, off.height);
+  ctx.drawImage(off, r.x, r.y);
+}
+
+// ---------------- 팝업(SHA Paint 필드) ----------------
+const POP_W = 300, POP_H = 270;
+const FIELDS = {};
+function makeField(L, w, h) {
+  let range = 0; for (let hh = 0; hh < 360; hh += 10) range += CM.findMaxChromaForHue(L, hh) / 36;
+  range *= 1.2;
+  const oc = document.createElement("canvas"); oc.width = w; oc.height = h;
+  const o = oc.getContext("2d"), img = o.createImageData(w, h), sc = range / Math.min(w / 2, h / 2);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const c = CM.labFieldPixel(L, (x - w / 2) * sc, (y - h / 2) * sc, false), i = (y * w + x) * 4;
+    if (c) { img.data[i] = c.r; img.data[i + 1] = c.g; img.data[i + 2] = c.b; img.data[i + 3] = 255; }
+  }
+  o.putImageData(img, 0, 0);
+  return { cv: oc, w, h, sc };
+}
+// SHA Paint 획: 그 자리 명도(L)의 필드에서 목표 색조(h)를 고름 (lab.py ACCENTS와 같은 색조)
+const STROKES = [
+  { t0: 6.5, d: 0.75, img: "sha-1", h: 292, L: 18 },
+  { t0: 7.5, d: 0.75, img: "sha-2", h: 16, L: 30 },
+  { t0: 8.5, d: 0.75, img: "sha-3", h: 78, L: 42 },
+  { t0: 9.5, d: 0.75, img: "sha-4", h: 236, L: 26 }
+];
+function strokeAt(t) { let i = 0; STROKES.forEach((s, k) => { if (t >= s.t0 - 0.35) i = k; }); return i; }
+function drawPopup(alpha, scale, t, lockA) {
+  if (alpha <= 0) return;
+  const p = LY.popup, w = POP_W, h = POP_H;
+  const i = strokeAt(t), S = STROKES[i], F = FIELDS[S.L], prev = STROKES[Math.max(0, i - 1)];
+  const mv = i === 0 ? 1 : eio(prog(t, S.t0 - 0.35, S.t0));      // 다음 획으로 커서 이동
+  const hue = prev.h + ((((S.h - prev.h) + 540) % 360) - 180) * mv;
+  const c = Math.min(CM.findMaxChromaForHue(S.L, hue) * 0.6, 34);
+  const ab = CM.polarToAB(c, hue), cur = CM.labToRgb(S.L, ab.a, ab.b, true);
+  ctx.save(); ctx.globalAlpha = alpha; ctx.translate(p.x, p.y); ctx.scale(p.s * scale, p.s * scale);
+  ctx.shadowColor = "rgba(0,0,0,0.5)"; ctx.shadowBlur = 30; ctx.shadowOffsetY = 12;
+  ctx.fillStyle = "#2b2b2f"; rr(0, 0, w, h, 16); ctx.fill(); ctx.shadowColor = "transparent";
+  ctx.strokeStyle = "rgba(232,163,61,0.45)"; ctx.lineWidth = 1.5; rr(0, 0, w, h, 16); ctx.stroke();
+  ctx.save(); rr(12, 12, w - 24, 172, 8); ctx.clip(); ctx.fillStyle = "#3a3a3f"; ctx.fillRect(12, 12, w - 24, 172); ctx.drawImage(F.cv, 12, 12); ctx.restore();
+  const fx = 12 + F.w / 2 + ab.a / F.sc, fy = 12 + F.h / 2 + ab.b / F.sc;
+  ctx.strokeStyle = "#fff"; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(fx, fy, 8, 0, 7); ctx.stroke();
+  const g = ctx.createLinearGradient(12, 0, w - 12, 0); g.addColorStop(0, "#1b1b1f"); g.addColorStop(1, "#f2f2f2");
+  ctx.fillStyle = g; rr(12, 196, w - 24, 12, 6); ctx.fill();
+  const hx = 12 + (w - 24) * S.L / 100;
+  ctx.fillStyle = "#fff"; rr(hx - 4, 192, 8, 20, 3); ctx.fill();
+  if (lockA > 0) { ctx.globalAlpha = alpha * lockA; ctx.fillStyle = GOLD; ctx.beginPath(); ctx.arc(hx, 172, 14, 0, 7); ctx.fill(); lockIcon(hx, 168, 17, "#fff"); ctx.globalAlpha = alpha; }
+  ctx.fillStyle = css(cur); rr(14, 224, 30, 30, 6); ctx.fill();
+  STROKES.forEach((s2, k) => { if (k > i) return; const q = CM.polarToAB(Math.min(CM.findMaxChromaForHue(s2.L, s2.h) * 0.6, 34), s2.h);
+    ctx.fillStyle = css(CM.labToRgb(s2.L, q.a, q.b, true)); rr(58 + k * 28, 230, 20, 20, 5); ctx.fill(); });
+  ctx.fillStyle = "#c9c9cf"; ctx.font = KR(800, 16); ctx.textAlign = "right"; ctx.fillText("L* " + S.L + " " + (LANG === "ko" ? "고정" : "locked"), w - 14, 248);
+  ctx.restore();
+  // 지금 칠하는 곳
+  ctx.save(); ctx.globalAlpha = alpha * clamp(prog(t, 6.3, 6.5));
+  pill(T.strokes[i], p.x + w * p.s / 2, p.y + h * p.s + 34, "rgba(20,19,23,0.88)", INK, WIDE ? 26 : 26);
+  ctx.restore();
+}
+
+// ---------------- 장면 ----------------
+function mainImage(t) {
+  const r = LY.img;
+  if (t < 2.75) return drawWipe("orig", null, 0, r);
+  if (t < 4.4) return drawWipe("orig", "naive", eio(prog(t, 2.75, 3.75)), r);
+  if (t < 5.7) return drawWipe("naive", "naive-diff", eio(prog(t, 4.4, 4.95)), r);   // 흑백으로 넘겨 보기
+  if (t < 6.5) return drawWipe("naive-diff", "orig", eio(prog(t, 5.7, 6.05)), r);
+  if (t < 10.5) {
+    let i = 0; STROKES.forEach((s, k) => { if (t >= s.t0) i = k; });
+    const S = STROKES[i];
+    return drawWipe(i ? STROKES[i - 1].img : "orig", S.img, eio(prog(t, S.t0, S.t0 + S.d)), r);
+  }
+  return drawWipe("sha-4", "gray", eio(prog(t, 10.5, 11.1)), r);
+}
+function inset(t) {
+  const r = LY.inset;
+  const a = eout(prog(t, 0.9, 1.3));
+  if (a <= 0) return;
+  ctx.save(); ctx.globalAlpha = a;
+  ctx.shadowColor = "rgba(0,0,0,0.55)"; ctx.shadowBlur = 24; ctx.shadowOffsetY = 8;
+  ctx.fillStyle = "#000"; rr(r.x, r.y, r.w, r.h, 14); ctx.fill(); ctx.shadowColor = "transparent";
+  ctx.save(); rr(r.x, r.y, r.w, r.h, 14); ctx.clip();
+  let k = 0;
+  if (t >= 2.6 && t < 5.7) k = eio(prog(t, 2.75, 3.75));
+  else if (t >= 5.7 && t < 6.5) k = 1 - eio(prog(t, 5.7, 6.05));
+  drawWipe("gray", "naive-diff", k, r);
+  ctx.restore();
+  pill(T.gray, r.x + 14, r.y + 32, "rgba(20,19,23,0.85)", INK, 22, "left");
+  // 상태 테두리 + 배지
+  let st = null;
+  if (t >= 3.4 && t < 5.9) st = { ok: false, a: prog(t, 3.4, 3.7) * (1 - prog(t, 5.7, 5.9)) };
+  else if (t >= 6.9 && t < 12.2) st = { ok: true, a: prog(t, 6.9, 7.2) };
+  if (st) {
+    ctx.globalAlpha = a * st.a;
+    ctx.strokeStyle = st.ok ? GOOD : BAD; ctx.lineWidth = 6; rr(r.x - 3, r.y - 3, r.w + 6, r.h + 6, 16); ctx.stroke();
+    pill((st.ok ? "✓ " : "! ") + (st.ok ? T.kept : T.broken), r.x + r.w / 2, r.y + r.h + 40, st.ok ? GOOD : BAD, "#fff", WIDE ? 26 : 26);
+  }
+  ctx.restore();
+}
+function caption(t) {
+  let cap = null;
+  for (const c of T.caps) if (t >= c.t0 && t <= c.t1) cap = c;
+  if (!cap) return;
+  const c = LY.cap;
+  const a = Math.min(eout(prog(t, cap.t0, cap.t0 + 0.25)), 1 - prog(t, cap.t1 - 0.15, cap.t1));
+  ctx.save(); ctx.globalAlpha = a; ctx.translate(0, (1 - a) * 14);
+  fitText(cap.l1, c.x, c.y1, c.maxW, c.s1, 800, INK, c.align);
+  fitText(cap.l2, c.x, c.y2, c.maxW, c.s2, 900, GOLD, c.align);
+  fitText(cap.sub, c.x, c.y3, c.maxW, c.s3, 500, DIM, c.align);
+  ctx.restore();
+}
+function endCard(t) {
+  const a = eout(prog(t, 12.2, 12.6));
+  ctx.save(); ctx.globalAlpha = a;
+  ctx.fillStyle = BG; ctx.fillRect(0, 0, W, H);
+  const tw = WIDE ? 400 : 450, th = tw * CROP.sh / CROP.sw;
+  const pair = WIDE ? { x: 110, y: (H - th) / 2 } : { x: (W - tw * 2 - 30) / 2, y: 300 };
+  [["orig", T.before], ["sha-4", T.after]].forEach(([n, lab], i) => {
+    const r = { x: pair.x + i * (tw + 30), y: pair.y, w: tw, h: th };
+    ctx.save(); rr(r.x, r.y, r.w, r.h, 16); ctx.clip(); drawWipe(n, null, 0, r); ctx.restore();
+    pill(lab, r.x + 16, r.y + 34, i ? GOLD : "rgba(20,19,23,0.85)", i ? "#241a08" : INK, 24, "left");
+  });
+  const cx = WIDE ? 1400 : W / 2, base = WIDE ? 500 : 1060;
+  ctx.fillStyle = INK; ctx.font = `700 ${WIDE ? 110 : 116}px Serif, serif`; ctx.textAlign = "center"; ctx.fillText("SHA Paint", cx, base);
+  richText(T.tag, cx, base + 92, WIDE ? 50 : 56, 900, INK, GOLD, WIDE ? 760 : 980);
+  fitText(T.meta, cx, base + 158, WIDE ? 760 : 980, 32, 500, DIM);
+  if (WIDE) { ctx.restore(); return; }   // 가로판은 사이트용: 구매 버튼은 페이지에 있으니 생략
+  const ba = eout(prog(t, 12.8, 13.2));
+  ctx.globalAlpha = a * ba;
+  ctx.font = KR(800, 42); const bw = ctx.measureText(T.cta).width + 110;
+  ctx.fillStyle = GOLD; rr(cx - bw / 2, base + 210, bw, 100, 50); ctx.fill();
+  ctx.fillStyle = "#241a08"; ctx.textAlign = "center"; ctx.fillText(T.cta, cx, base + 275);
+  ctx.restore();
+}
+function hueStrip(y) {
+  const g = ctx.createLinearGradient(0, 0, W, 0);
+  ["#f34b8e", "#f45351", "#d4711e", "#a58920", "#709821", "#2d9f59", "#2d9b8a", "#3099a4", "#3890dd", "#887cf1", "#ec36e1", "#f34b8e"].forEach((c, i, arr) => g.addColorStop(i / (arr.length - 1), c));
+  ctx.fillStyle = g; ctx.fillRect(0, y, W, 8);
+}
+
+function renderAt(t) {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = BG; ctx.fillRect(0, 0, W, H);
+  hueStrip(0);
+  if (!WIDE) { ctx.fillStyle = DIM; ctx.font = "700 32px Serif, serif"; ctx.textAlign = "center"; ctx.fillText("SHA Paint", W / 2, 140); }
+  else { ctx.fillStyle = DIM; ctx.font = "700 30px Serif, serif"; ctx.textAlign = "left"; ctx.fillText("SHA Paint", 1000, 76); }
+  if (t < 12.6) {
+    const r = LY.img;
+    ctx.save(); rr(r.x, r.y, r.w, r.h, 18); ctx.clip(); mainImage(t); ctx.restore();
+    inset(t);
+    const pa = clamp(prog(t, 6.0, 6.2)) * (1 - prog(t, 10.4, 10.6));
+    drawPopup(pa, back(prog(t, 6.0, 6.35)), t, prog(t, 6.3, 6.6));
+    caption(t);
+    ctx.fillStyle = FAINT; ctx.font = KR(500, WIDE ? 20 : 22); ctx.textAlign = WIDE ? "left" : "center";
+    ctx.fillText(T.disc, LY.disc.x, LY.disc.y);
+  }
+  if (t >= 12.2) endCard(t);
+  hueStrip(H - 8);
+}
+
+window.SFX_CUES = [
+  { t: 0.2, type: "swell", vol: 0.5 }, { t: 1.0, type: "tick", vol: 0.6 },
+  { t: 2.8, type: "scribble", dur: 0.9 }, { t: 3.45, type: "erase", dur: 0.25 }, { t: 4.45, type: "whoosh", vol: 0.5 },
+  { t: 5.75, type: "whoosh", vol: 0.4 }, { t: 6.0, type: "pop" }, { t: 6.35, type: "click", vol: 0.8 },
+  ...[6.5, 7.5, 8.5, 9.5].map((t) => ({ t, type: "scribble", dur: 0.6 })), { t: 6.95, type: "chime", vol: 0.35 },
+  { t: 10.5, type: "whoosh", vol: 0.5 }, { t: 11.1, type: "chime", vol: 0.45 },
+  { t: 12.25, type: "swell" }, { t: 12.85, type: "chime" }
+];
+window.AD_INFO = { DURATION, W, H, LANG, WIDE };
+window.renderAt = renderAt;
+function start() {
+  return Promise.all([document.fonts.load(KR(900, 40)), document.fonts.load(KR(800, 40)), document.fonts.load(KR(500, 20)), document.fonts.load("700 40px Serif")].map((p) => p.catch(() => null)))
+    .then(() => Promise.all(NAMES.map(load)))
+    .then(() => { STROKES.forEach((s) => { if (!FIELDS[s.L]) FIELDS[s.L] = makeField(s.L, 276, 172); }); renderAt(0); window.__adReady = true; });
+}
+window.__start = start;
+if (!RENDER) start().then(() => {
+  const t0 = performance.now();
+  const loop = () => { renderAt(((performance.now() - t0) / 1000) % DURATION); requestAnimationFrame(loop); };
+  loop();
+});
+})();
+</script>
+</body>
+</html>
