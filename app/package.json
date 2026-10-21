@@ -1,6 +1,6 @@
 {
   "name": "luminance-overlay-app",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "SHA Paint — Photoshop용 동명도 팔레트",
   "author": "SHA Studio",
   "main": "main.js",
