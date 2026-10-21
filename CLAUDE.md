@@ -8,7 +8,7 @@ Photoshop 오버레이 팔레트. Lab L*(명도)를 고정한 채 색상/채도�
   - 라이선스 키: Gumroad License API. 상품 ID `Z-z4Harnz0sMKG_7200QXw==` (`app/licensing.js`와 `app/build/installer.nsh` 두 곳 — `verify.js`가 일치 검사). 실제 구매 키로 활성화 성공 확인됨(2026-10-19).
   - 좌석(seat) 옵션 켜짐 → 활성화 PC 수 = 좌석 수 × 3.
 - **배포 파일**: `app/dist/SHAPaintSetup-1.0.0.exe` (저장소에 없음, 빌드로 생성). Gumroad에 업로드된 것이 출시본.
-- **랜딩페이지**: `site/` 폴더를 Netlify에 통째로 업로드(드래그&드롭). `site/index.html`(한국어), `site/en/index.html`(영문, `node scripts/build-en-landing.js`로 한국어 페이지 스타일을 가져와 생성). 구매 버튼은 전부 Gumroad 결제 링크. 메시지 중심은 **명도 고정·입체감 유지**(히어로/비교 데모는 colorMath 계산값으로 칠한 구 + 흑백 구 CSS 애니메이션), 펜 옆 팝업은 보조 기능으로 소개.
+- **랜딩페이지**: Netlify가 GitHub 저장소에 연결됨 → `main`에 push하면 자동 배포(`netlify.toml`이 `site/`를 배포 폴더로 지정). `site/index.html`(한국어), `site/en/index.html`(영문, `node scripts/build-en-landing.js`로 한국어 페이지 스타일을 가져와 생성). 구매 버튼은 전부 Gumroad 결제 링크. 메시지 중심은 **명도 고정·입체감 유지**(히어로/비교 데모는 colorMath 계산값으로 칠한 구 + 흑백 구 CSS 애니메이션), 펜 옆 팝업은 보조 기능으로 소개.
 - **광고/마케팅 에셋** (`docs/`):
   - `docs/ad-video/` 15초 모션그래픽(9:16·16:9, 한/영) — 인스타그램 광고로 집행 중(9:16 한국어)
   - `docs/ad-video/v2/` 인스타 피드용 15초 4:5(밝은 톤, 한/영)

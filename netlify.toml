@@ -1,0 +1,4 @@
+# Netlify 배포 설정: 저장소 연결(지속 배포) 시 site/ 폴더를 그대로 배포한다. 빌드 과정 없음.
+[build]
+  publish = "site"
+  command = ""
