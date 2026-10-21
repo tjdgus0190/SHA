@@ -26,6 +26,9 @@ node docs/ad-video/real-demo/edit.js
 ```
 자막 문구/구간/배속은 `edit.js` 상단의 `SEG`, `CAPTIONS`.
 
+## 랜딩페이지용 (`--web`)
+`node docs/ad-video/real-demo/edit.js --web` → `site/media/sha-paint-demo.mp4`(자막·엔드카드 없는 1280×720 본편, 약 350KB)와 포스터 JPG. 자막은 페이지가 HTML로 언어별로 겹친다. 구간을 바꾸면 출력되는 장면 시각을 `site/index.html`·`scripts/build-en-landing.js`의 장면 버튼 `data-t`에 맞춘다.
+
 ## 다시 촬영 (주의: 촬영 중 PC 조작 금지)
 - Photoshop 메인 창이 **보조 모니터(왼쪽, 1920×1080)에 최대화**된 배치를 가정한다(`input.ps1`의 `$MonX`, `demo.ps1`의 캔버스 좌표).
 - `automation/setup-doc.jsx`로 데모 문서 생성 → 전경색을 rgb(245,148,178)로 → `automation/demo.ps1` 실행.

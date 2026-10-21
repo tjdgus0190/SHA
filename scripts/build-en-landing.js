@@ -68,6 +68,30 @@ const body = `<body>
   </div>
 </header>
 
+<section class="divider-top video-section" id="demo">
+  <div class="wrap">
+    <h2 class="eyebrow-free-title">See it in real Photoshop</h2>
+    <p class="section-lead">All five petals were painted at the same value (L* 72), changing only the color. Switch to the lightness channel at the end, and every petal turns the same gray.</p>
+
+    <div class="video-frame">
+      <video id="demo-video" muted loop playsinline preload="metadata" poster="../media/sha-paint-demo-poster.jpg" aria-label="Screen recording of SHA Paint in use">
+        <source src="../media/sha-paint-demo.mp4" type="video/mp4">
+      </video>
+      <p class="video-cap" id="demo-cap"></p>
+      <span class="video-badge">Real screen recording</span>
+    </div>
+    <ol class="chapters" id="demo-chapters">
+      <li><button type="button" data-t="0"><span class="n">1</span>Open the palette by your pen<span class="bar"></span></button></li>
+      <li><button type="button" data-t="6.7" class="key"><span class="n">2</span>Same value, change only the color<span class="bar"></span></button></li>
+      <li><button type="button" data-t="11.38"><span class="n">3</span>Colors that fit at the same value<span class="bar"></span></button></li>
+      <li><button type="button" data-t="15.65"><span class="n">4</span>Reuse picked colors in one click<span class="bar"></span></button></li>
+      <li><button type="button" data-t="21.65"><span class="n">5</span>Paint straight away, no trial strokes<span class="bar"></span></button></li>
+      <li><button type="button" data-t="28.71" class="key"><span class="n">6</span>In grayscale, every petal is the same gray<span class="bar"></span></button></li>
+    </ol>
+    <p class="video-note">Recorded from the real app (captured with a mouse; painting parts are sped up). Click a step to jump to it.</p>
+  </div>
+</section>
+
 <section class="divider-top demo-section">
   <div class="wrap">
     <h2 class="eyebrow-free-title">Change the color, then look at it in grayscale</h2>
@@ -277,6 +301,42 @@ const body = `<body>
     ${CONTACT ? `<p>Contact: ${CONTACT}</p>` : ""}
   </div>
 </footer>
+
+<script>
+// 실제 화면 데모: 화면에 보일 때만 재생, 장면 자막/목록 동기화, 장면 클릭 시 이동
+(() => {
+  const v = document.getElementById("demo-video");
+  if (!v) return;
+  const cap = document.getElementById("demo-cap");
+  const btns = [...document.querySelectorAll("#demo-chapters button")];
+  const starts = btns.map((b) => +b.dataset.t);
+  const label = (b) => b.childNodes[1].textContent;
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let wanted = !reduce;
+  if (reduce) v.controls = true;
+  const sync = () => {
+    const t = v.currentTime, d = v.duration || 0;
+    let i = 0; while (i + 1 < starts.length && t >= starts[i + 1]) i++;
+    const end = i + 1 < starts.length ? starts[i + 1] : d;
+    btns.forEach((b, k) => {
+      b.classList.toggle("on", k === i);
+      b.querySelector(".bar").style.width = k === i && end > starts[i] ? ((t - starts[i]) / (end - starts[i]) * 100) + "%" : "0";
+    });
+    const txt = label(btns[i]);
+    if (cap.textContent !== txt) cap.textContent = txt;
+  };
+  v.addEventListener("timeupdate", sync);
+  v.addEventListener("loadedmetadata", sync);
+  btns.forEach((b) => b.addEventListener("click", () => { v.currentTime = +b.dataset.t + 0.05; wanted = true; v.play().catch(() => {}); sync(); }));
+  v.addEventListener("click", () => { if (v.paused) { wanted = true; v.play().catch(() => {}); } else { wanted = false; v.pause(); } });
+  if ("IntersectionObserver" in window) {
+    new IntersectionObserver((es) => es.forEach((e) => {
+      if (e.isIntersecting && wanted) v.play().catch(() => {}); else if (!e.isIntersecting) v.pause();
+    }), { threshold: 0.35 }).observe(v);
+  } else if (wanted) v.play().catch(() => {});
+  sync();
+})();
+</script>
 
 <script src="https://gumroad.com/js/gumroad.js"></script>
 
