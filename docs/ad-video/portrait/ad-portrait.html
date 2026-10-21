@@ -146,8 +146,86 @@ function drawWipe(a, b, k, r) {
   ctx.drawImage(off, r.x, r.y);
 }
 
+// ---------------- 펜으로 칠하기 ----------------
+// 원본 800px 좌표 → 화면 좌표 (frames-src는 (x-150)*2, (y-40)*2 로 잘라 확대됨)
+const toScr = (pt, r) => ({ x: r.x + (pt[0] - 150) * 2 * r.w / CROP.sw, y: r.y + (pt[1] - 40) * 2 * r.h / CROP.sh });
+function pathLen(pts) { let L = 0; for (let i = 1; i < pts.length; i++) L += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); return L; }
+function pointAt(pts, k) {
+  let want = pathLen(pts) * clamp(k);
+  for (let i = 1; i < pts.length; i++) {
+    const d = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+    if (want <= d) { const q = d ? want / d : 0; return [lerp(pts[i - 1][0], pts[i][0], q), lerp(pts[i - 1][1], pts[i][1], q)]; }
+    want -= d;
+  }
+  return pts[pts.length - 1];
+}
+// a 위에 b를 "펜이 지나간 자리"만큼 드러냄. fill(0~1)은 붓이 덜 지나간 곳까지 마무리
+const mk = document.createElement("canvas"), mx = mk.getContext("2d");
+function drawStroke(a, b, pts, brush, k, fill, r) {
+  ctx.drawImage(IMG[a], CROP.sx, CROP.sy, CROP.sw, CROP.sh, r.x, r.y, r.w, r.h);
+  if (k > 0) {
+    const sc = 2 * r.w / CROP.sw;
+    mk.width = off.width = Math.ceil(r.w); mk.height = off.height = Math.ceil(r.h);
+    mx.clearRect(0, 0, mk.width, mk.height);
+    mx.filter = `blur(${Math.round(brush * sc * 0.18)}px)`;
+    mx.strokeStyle = "#000"; mx.lineWidth = brush * sc; mx.lineCap = "round"; mx.lineJoin = "round";
+    mx.beginPath();
+    const end = pointAt(pts, k), total = pathLen(pts) * clamp(k);
+    let acc = 0;
+    const P0 = toScr(pts[0], { x: 0, y: 0, w: r.w, h: r.h }); mx.moveTo(P0.x, P0.y);
+    for (let i = 1; i < pts.length; i++) {
+      const d = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+      const q = acc + d <= total ? pts[i] : end;
+      const Q = toScr(q, { x: 0, y: 0, w: r.w, h: r.h }); mx.lineTo(Q.x, Q.y);
+      acc += d; if (acc >= total) break;
+    }
+    mx.stroke(); mx.filter = "none";
+    ox.globalCompositeOperation = "source-over"; ox.clearRect(0, 0, off.width, off.height);
+    ox.drawImage(IMG[b], CROP.sx, CROP.sy, CROP.sw, CROP.sh, 0, 0, r.w, r.h);
+    ox.globalCompositeOperation = "destination-in"; ox.drawImage(mk, 0, 0);
+    ctx.drawImage(off, r.x, r.y);
+  }
+  if (fill > 0) { ctx.save(); ctx.globalAlpha = fill; ctx.drawImage(IMG[b], CROP.sx, CROP.sy, CROP.sw, CROP.sh, r.x, r.y, r.w, r.h); ctx.restore(); }
+}
+function drawPen(x, y, alpha = 1, press = 0) {
+  if (alpha <= 0) return;
+  const s = WIDE ? 0.85 : 1;
+  ctx.save(); ctx.globalAlpha = alpha; ctx.translate(x, y); ctx.scale(s, s); ctx.rotate(0.55);
+  ctx.shadowColor = "rgba(0,0,0,0.45)"; ctx.shadowBlur = 18; ctx.shadowOffsetX = 10; ctx.shadowOffsetY = 12;
+  ctx.fillStyle = "#2a2730"; rr(-13, -320, 26, 288, 13); ctx.fill();
+  ctx.shadowColor = "transparent";
+  ctx.fillStyle = "#4a4552"; rr(-13, -160, 26, 38, 5); ctx.fill();
+  ctx.fillStyle = "#3a3640"; rr(-13, -320, 26, 40, [13, 13, 4, 4]); ctx.fill();
+  ctx.fillStyle = "#d8d1c6"; ctx.beginPath(); ctx.moveTo(-11, -34); ctx.lineTo(0, 0); ctx.lineTo(11, -34); ctx.closePath(); ctx.fill();
+  ctx.restore();
+  if (press > 0) { ctx.save(); ctx.globalAlpha = alpha * press * 0.6; ctx.strokeStyle = GOLD; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(x, y, 12 + 16 * press, 0, 7); ctx.stroke(); ctx.restore(); }
+}
+// 펜 위치: 보통 피커 장면은 얼굴을 쓱쓱, SHA 장면은 팝업 ↔ 얼굴 왕복
+function penAt(t) {
+  const r = LY.img;
+  if (t >= 2.45 && t < 4.05) {
+    const start = toScr(NAIVE.path[0], r), endP = toScr(NAIVE.path[NAIVE.path.length - 1], r);
+    if (t < NAIVE.t0) { const k = eio(prog(t, 2.45, NAIVE.t0)); return { x: lerp(W - 40, start.x, k), y: lerp(r.y + 120, start.y, k), a: prog(t, 2.45, 2.6), press: 0 }; }
+    if (t < NAIVE.t1) { const q = toScr(pointAt(NAIVE.path, prog(t, NAIVE.t0, NAIVE.t1)), r); return { x: q.x, y: q.y, a: 1, press: 1 }; }
+    const k = eio(prog(t, NAIVE.t1, 4.05)); return { x: lerp(endP.x, W - 40, k), y: lerp(endP.y, r.y + r.h, k), a: 1 - prog(t, 3.85, 4.05), press: 0 };
+  }
+  if (t < 6.2 || t > 10.75 || !POPUP_CURSOR) return null;
+  const i = strokeAt(t), S = STROKES[i], c = POPUP_CURSOR;
+  const st = toScr(S.path[0], r);
+  if (t < S.t0 + 0.33) {                                   // 팝업으로 와서 색 찍기
+    if (i === 0) return { x: c.x, y: c.y, a: prog(t, 6.2, 6.35), press: t > S.t0 + 0.2 ? 1 : 0 };
+    const pe = toScr(STROKES[i - 1].path[STROKES[i - 1].path.length - 1], r), k = eio(prog(t, S.t0, S.t0 + 0.2));
+    return { x: lerp(pe.x, c.x, k), y: lerp(pe.y, c.y, k), a: 1, press: t > S.t0 + 0.2 ? 1 : 0 };
+  }
+  if (t < S.t0 + 0.48) { const k = eio(prog(t, S.t0 + 0.33, S.t0 + 0.48)); return { x: lerp(c.x, st.x, k), y: lerp(c.y, st.y, k), a: 1, press: 0 }; }
+  const q = toScr(pointAt(S.path, prog(t, S.t0 + 0.48, S.t0 + 1.0)), r);
+  return { x: q.x, y: q.y, a: i === 3 ? 1 - prog(t, 10.55, 10.75) : 1, press: t < S.t0 + 1.0 ? 1 : 0 };
+}
+
 // ---------------- 팝업(SHA Paint 필드) ----------------
 const POP_W = 300, POP_H = 270;
+let POPUP_CURSOR = null;
 const FIELDS = {};
 function makeField(L, w, h) {
   let range = 0; for (let hh = 0; hh < 360; hh += 10) range += CM.findMaxChromaForHue(L, hh) / 36;
@@ -162,18 +240,21 @@ function makeField(L, w, h) {
   return { cv: oc, w, h, sc };
 }
 // SHA Paint 획: 그 자리 명도(L)의 필드에서 목표 색조(h)를 고름 (lab.py ACCENTS와 같은 색조)
+// 획마다: 팝업에서 색 고르기(t0~+0.3) → 얼굴로 이동(+0.33~+0.48) → 펜이 지나간 자리만 칠해짐(+0.48~+1.0) → 마무리(+0.95~+1.05)
+// path: 원본 800px 그림 좌표, brush: 붓 두께(같은 좌표계)
 const STROKES = [
-  { t0: 6.5, d: 0.75, img: "sha-1", h: 292, L: 18 },
-  { t0: 7.5, d: 0.75, img: "sha-2", h: 16, L: 30 },
-  { t0: 8.5, d: 0.75, img: "sha-3", h: 78, L: 42 },
-  { t0: 9.5, d: 0.75, img: "sha-4", h: 236, L: 26 }
+  { t0: 6.2, img: "sha-1", h: 292, L: 18, brush: 120, path: [[275, 95], [420, 90], [285, 250], [255, 420], [330, 485], [450, 500], [430, 600], [470, 650]] },
+  { t0: 7.28, img: "sha-2", h: 16, L: 30, brush: 110, path: [[265, 215], [300, 330], [335, 395], [440, 320], [470, 340], [560, 300]] },
+  { t0: 8.36, img: "sha-3", h: 78, L: 42, brush: 120, path: [[300, 140], [450, 180], [300, 300], [460, 300], [340, 445], [560, 560], [610, 610]] },
+  { t0: 9.44, img: "sha-4", h: 236, L: 26, brush: 110, path: [[370, 500], [470, 505], [400, 590], [610, 575]] }
 ];
-function strokeAt(t) { let i = 0; STROKES.forEach((s, k) => { if (t >= s.t0 - 0.35) i = k; }); return i; }
+const NAIVE = { t0: 2.75, t1: 3.75, brush: 120, path: [].concat(...STROKES.map((s) => s.path)) };
+function strokeAt(t) { let i = 0; STROKES.forEach((s, k) => { if (t >= s.t0) i = k; }); return i; }
 function drawPopup(alpha, scale, t, lockA) {
   if (alpha <= 0) return;
   const p = LY.popup, w = POP_W, h = POP_H;
   const i = strokeAt(t), S = STROKES[i], F = FIELDS[S.L], prev = STROKES[Math.max(0, i - 1)];
-  const mv = i === 0 ? 1 : eio(prog(t, S.t0 - 0.35, S.t0));      // 다음 획으로 커서 이동
+  const mv = i === 0 ? 1 : eio(prog(t, S.t0 + 0.05, S.t0 + 0.28));      // 다음 획으로 커서 이동
   const hue = prev.h + ((((S.h - prev.h) + 540) % 360) - 180) * mv;
   const c = Math.min(CM.findMaxChromaForHue(S.L, hue) * 0.6, 34);
   const ab = CM.polarToAB(c, hue), cur = CM.labToRgb(S.L, ab.a, ab.b, true);
@@ -183,6 +264,7 @@ function drawPopup(alpha, scale, t, lockA) {
   ctx.strokeStyle = "rgba(232,163,61,0.45)"; ctx.lineWidth = 1.5; rr(0, 0, w, h, 16); ctx.stroke();
   ctx.save(); rr(12, 12, w - 24, 172, 8); ctx.clip(); ctx.fillStyle = "#3a3a3f"; ctx.fillRect(12, 12, w - 24, 172); ctx.drawImage(F.cv, 12, 12); ctx.restore();
   const fx = 12 + F.w / 2 + ab.a / F.sc, fy = 12 + F.h / 2 + ab.b / F.sc;
+  POPUP_CURSOR = { x: p.x + fx * p.s * scale, y: p.y + fy * p.s * scale };
   ctx.strokeStyle = "#fff"; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(fx, fy, 8, 0, 7); ctx.stroke();
   const g = ctx.createLinearGradient(12, 0, w - 12, 0); g.addColorStop(0, "#1b1b1f"); g.addColorStop(1, "#f2f2f2");
   ctx.fillStyle = g; rr(12, 196, w - 24, 12, 6); ctx.fill();
@@ -204,15 +286,15 @@ function drawPopup(alpha, scale, t, lockA) {
 function mainImage(t) {
   const r = LY.img;
   if (t < 2.75) return drawWipe("orig", null, 0, r);
-  if (t < 4.4) return drawWipe("orig", "naive", eio(prog(t, 2.75, 3.75)), r);
+  if (t < 4.4) return drawStroke("orig", "naive", NAIVE.path, NAIVE.brush, prog(t, NAIVE.t0, NAIVE.t1), prog(t, 3.7, 3.85), r);
   if (t < 5.7) return drawWipe("naive", "naive-diff", eio(prog(t, 4.4, 4.95)), r);   // 흑백으로 넘겨 보기
-  if (t < 6.5) return drawWipe("naive-diff", "orig", eio(prog(t, 5.7, 6.05)), r);
-  if (t < 10.5) {
-    let i = 0; STROKES.forEach((s, k) => { if (t >= s.t0) i = k; });
-    const S = STROKES[i];
-    return drawWipe(i ? STROKES[i - 1].img : "orig", S.img, eio(prog(t, S.t0, S.t0 + S.d)), r);
+  if (t < 6.2) return drawWipe("naive-diff", "orig", eio(prog(t, 5.7, 6.05)), r);
+  if (t < 6.2) return drawWipe("orig", null, 0, r);
+  if (t < 10.6) {
+    const i = strokeAt(t), S = STROKES[i];
+    return drawStroke(i ? STROKES[i - 1].img : "orig", S.img, S.path, S.brush, prog(t, S.t0 + 0.48, S.t0 + 1.0), prog(t, S.t0 + 0.95, S.t0 + 1.05), r);
   }
-  return drawWipe("sha-4", "gray", eio(prog(t, 10.5, 11.1)), r);
+  return drawWipe("sha-4", "gray", eio(prog(t, 10.6, 11.15)), r);
 }
 function inset(t) {
   const r = LY.inset;
@@ -223,7 +305,7 @@ function inset(t) {
   ctx.fillStyle = "#000"; rr(r.x, r.y, r.w, r.h, 14); ctx.fill(); ctx.shadowColor = "transparent";
   ctx.save(); rr(r.x, r.y, r.w, r.h, 14); ctx.clip();
   let k = 0;
-  if (t >= 2.6 && t < 5.7) k = eio(prog(t, 2.75, 3.75));
+  if (t >= 2.6 && t < 5.7) k = eio(prog(t, 2.75, 3.85));
   else if (t >= 5.7 && t < 6.5) k = 1 - eio(prog(t, 5.7, 6.05));
   drawWipe("gray", "naive-diff", k, r);
   ctx.restore();
@@ -290,8 +372,10 @@ function renderAt(t) {
     const r = LY.img;
     ctx.save(); rr(r.x, r.y, r.w, r.h, 18); ctx.clip(); mainImage(t); ctx.restore();
     inset(t);
-    const pa = clamp(prog(t, 6.0, 6.2)) * (1 - prog(t, 10.4, 10.6));
+    const pa = clamp(prog(t, 6.0, 6.2)) * (1 - prog(t, 10.55, 10.75));
     drawPopup(pa, back(prog(t, 6.0, 6.35)), t, prog(t, 6.3, 6.6));
+    const pen = penAt(t);
+    if (pen) drawPen(pen.x, pen.y, pen.a, pen.press);
     caption(t);
     ctx.fillStyle = FAINT; ctx.font = KR(500, WIDE ? 20 : 22); ctx.textAlign = WIDE ? "left" : "center";
     ctx.fillText(T.disc, LY.disc.x, LY.disc.y);
@@ -302,10 +386,10 @@ function renderAt(t) {
 
 window.SFX_CUES = [
   { t: 0.2, type: "swell", vol: 0.5 }, { t: 1.0, type: "tick", vol: 0.6 },
-  { t: 2.8, type: "scribble", dur: 0.9 }, { t: 3.45, type: "erase", dur: 0.25 }, { t: 4.45, type: "whoosh", vol: 0.5 },
-  { t: 5.75, type: "whoosh", vol: 0.4 }, { t: 6.0, type: "pop" }, { t: 6.35, type: "click", vol: 0.8 },
-  ...[6.5, 7.5, 8.5, 9.5].map((t) => ({ t, type: "scribble", dur: 0.6 })), { t: 6.95, type: "chime", vol: 0.35 },
-  { t: 10.5, type: "whoosh", vol: 0.5 }, { t: 11.1, type: "chime", vol: 0.45 },
+  { t: 2.75, type: "scribble", dur: 1.0 }, { t: 3.5, type: "erase", dur: 0.25 }, { t: 4.45, type: "whoosh", vol: 0.5 },
+  { t: 5.75, type: "whoosh", vol: 0.4 }, { t: 6.0, type: "pop" },
+  ...[6.2, 7.28, 8.36, 9.44].flatMap((t) => [{ t: t + 0.22, type: "click", vol: 0.8 }, { t: t + 0.48, type: "scribble", dur: 0.52 }]),
+  { t: 7.1, type: "chime", vol: 0.3 }, { t: 10.6, type: "whoosh", vol: 0.5 }, { t: 11.15, type: "chime", vol: 0.45 },
   { t: 12.25, type: "swell" }, { t: 12.85, type: "chime" }
 ];
 window.AD_INFO = { DURATION, W, H, LANG, WIDE };
