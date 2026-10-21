@@ -105,10 +105,11 @@ def load(path):
 
 # 포인트 색: (이름, 목표 색조°, 목표 채도, 보통 피커에서 고른 색)
 ACCENTS = [
-    ("shadow", 292, 30, (108, 76, 208)),   # 그림자에 보라
-    ("flush", 14, 46, (226, 72, 72)),      # 볼·코·귀·입술에 붉은 기
-    ("light", 80, 56, (242, 196, 67)),     # 하이라이트에 금빛
-    ("rim", 236, 34, (47, 170, 200)),      # 턱 아래·목 반사광에 청록(배경 파랑의 반사)
+    ("shadow", 286, 52, (108, 76, 208)),   # 그림자에 보라
+    ("flush", 0, 64, (226, 72, 72)),       # 볼·코·귀·입술에 마젠타빛 혈색
+    ("light", 68, 78, (242, 196, 67)),     # 하이라이트에 금빛
+    ("rim", 228, 56, (47, 170, 200)),      # 턱 아래·목 반사광에 청록(배경 파랑의 반사)
+    ("hair", 325, 58, (200, 60, 170)),     # 머리카락·귀 테두리에 핫핑크 포인트
 ]
 
 
@@ -122,10 +123,11 @@ def main():
     shp = L.shape
 
     masks = {
-        "shadow": sstep(L, 24, 10) * fig,
-        "flush": blur(blobs(shp, [(300, 325, 70), (450, 330, 100), (560, 295, 60), (330, 392, 55), (275, 215, 50)]) * sstep(L, 14, 26), 16) * fig,
-        "light": blur(sstep(L, 36, 48) * blobs(shp, [(330, 200, 140), (300, 300, 60), (450, 300, 90), (560, 560, 110), (330, 440, 60)]), 4) * fig,
-        "rim": blur(blobs(shp, [(420, 505, 95), (400, 580, 80), (610, 570, 60)]) * sstep(L, 10, 22) * (1 - sstep(L, 34, 44)), 18) * fig,
+        "shadow": sstep(L, 28, 11) * fig,
+        "flush": blur(blobs(shp, [(300, 330, 80), (455, 330, 115), (560, 295, 70), (330, 392, 60), (275, 215, 55)]) * sstep(L, 12, 24), 28) * fig,
+        "light": blur(sstep(L, 31, 45) * blobs(shp, [(330, 200, 160), (300, 300, 75), (450, 300, 100), (560, 560, 130), (330, 440, 70)]), 5) * fig,
+        "rim": blur(blobs(shp, [(420, 500, 105), (395, 585, 70), (615, 575, 60), (250, 330, 45)]) * sstep(L, 8, 20) * (1 - sstep(L, 36, 46)), 18) * fig,
+        "hair": blur(blobs(shp, [(340, 95, 120), (575, 255, 40), (555, 330, 30)]) * sstep(L, 34, 18), 6) * fig,
     }
     for k, m in masks.items():
         Image.fromarray((m * 255).astype(np.uint8)).save(os.path.join(OUT, f"mask-{k}.png"))
@@ -140,9 +142,9 @@ def main():
     ca, cb = a.copy(), b.copy()
     info = {}
     for i, (name, hue, chroma, _) in enumerate(ACCENTS, 1):
-        w = np.clip(masks[name] * (0.7 if name == "flush" else 0.9), 0, 1)
+        w = np.clip(masks[name] * 0.95, 0, 1)
         C0 = np.hypot(ca, cb)
-        tc = np.maximum(C0 * 0.8, chroma)
+        tc = np.maximum(C0, chroma)
         ta, tb = tc * np.cos(np.radians(hue)), tc * np.sin(np.radians(hue))
         ca, cb = ca + (ta - ca) * w, cb + (tb - cb) * w
         out = lab2rgb_keepL(np.stack([L, ca, cb], -1))
