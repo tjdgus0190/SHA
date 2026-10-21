@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>SHA Paint — The same-value palette, right by your pen</title>
-<meta name="description" content="A Photoshop color palette that pops up right next to your pen. It keeps the lightness of your current color locked, so you only choose hue and saturation. For Windows 10/11." />
+<title>SHA Paint — Lock the value, change only the color</title>
+<meta name="description" content="A same-value color palette for Photoshop. It locks the lightness (L*) of your current color and shows only hues and chroma at that value, so recoloring never breaks your shading or form. For Windows 10/11." />
 <meta property="og:type" content="website" />
-<meta property="og:title" content="SHA Paint — The same-value palette, right by your pen" />
-<meta property="og:description" content="Stop going back and forth to the color panel. Pick colors that keep the same value, right next to your pen." />
+<meta property="og:title" content="SHA Paint — Lock the value, change only the color" />
+<meta property="og:description" content="Colors that fit, at the exact same value as your current color. Recolor freely and your shading and form stay intact." />
 <meta property="og:image" content="og-cover.png" />
 <meta property="og:image:width" content="1280" />
 <meta property="og:image:height" content="720" />
@@ -35,6 +35,7 @@
     font-family:'Inter',sans-serif;
     -webkit-font-smoothing:antialiased;
     line-height:1.6;
+    word-break:keep-all;
   }
   h1,h2,h3{
     font-family:'Fraunces',serif;
@@ -141,48 +142,75 @@
   }
   .price-note b{color:var(--ink-dim); font-weight:600;}
 
-  /* 히어로 우측 시각 요소: 실제 동명도 필드를 흉내낸 원형 그라디언트 + 명도 트랙 */
+  /* 히어로 우측 시각 요소: 같은 구를 컬러/흑백으로 나란히. 컬러 구는 색조가 계속 바뀌지만
+     모든 색이 L* 85/65/40(빛/기본/그림자)에 고정돼 있어서 흑백 구는 한 번도 변하지 않는다.
+     색 값은 app/colorMath.js로 계산한 실제 값(sRGB hex). */
   .hero-visual{
     background:var(--bg-raised);
     border:1px solid var(--line);
     border-radius:16px;
     padding:22px;
   }
-  .field-demo{
-    width:100%;
-    aspect-ratio:1.35/1;
+  .sphere-pair{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    background:#f3eee6;
     border-radius:10px;
-    background:
-      radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 38%, rgba(28,26,31,1) 66%),
-      conic-gradient(from 90deg,
-        #f34b8e,#f45351,#d4711e,#a58920,#709821,#2d9f59,
-        #2d9b8a,#3099a4,#3396bb,#3890dd,#887cf1,#ec36e1,#f34b8e);
-    position:relative;
+    padding:14px 10px 6px;
   }
-  .field-demo .cursor-dot{
-    position:absolute;
-    width:16px; height:16px;
-    border:2px solid #fff;
-    border-radius:50%;
-    top:34%; left:63%;
-    box-shadow:0 0 0 1px rgba(0,0,0,.4);
+  .sphere-pair figure{margin:0;}
+  .sphere-pair figcaption{
+    text-align:center;
+    font-size:12px;
+    font-weight:600;
+    color:#6f6860;
+    margin-top:2px;
   }
-  .lightness-track-demo{
+  .sph{width:100%;height:auto;}
+  .sph .outline{fill:none;stroke:#3a2f2a;stroke-width:2.2;}
+  .sph .ground{fill:#e2dbd4;}
+  .sph.gray .ground{fill:#cccccc;}
+  /* 기본(코랄) 팔레트 */
+  .sph .t-light{fill:#edcec3;}
+  .sph .t-base{fill:#ed7d78;}
+  .sph .t-shadow{fill:#a73642;}
+  /* 흑백 = 같은 L*의 회색 */
+  .sph.gray .t-light{fill:#d4d4d4;}
+  .sph.gray .t-base{fill:#9e9e9e;}
+  .sph.gray .t-shadow{fill:#5e5e5e;}
+  /* 히어로: L*는 고정, 색조만 6단계로 회전 */
+  .hero-visual .sph.cycle .t-light{animation:hero-light 12s infinite;}
+  .hero-visual .sph.cycle .t-base{animation:hero-base 12s infinite;}
+  .hero-visual .sph.cycle .t-shadow{animation:hero-shadow 12s infinite;}
+  @keyframes hero-light{
+    0%,13%{fill:#ebcfc1;} 17%,30%{fill:#d4db84;} 34%,47%{fill:#96e3cf;}
+    51%,63%{fill:#b7daea;} 67%,80%{fill:#d7d1ea;} 84%,96%{fill:#ebcdd3;} 100%{fill:#ebcfc1;}
+  }
+  @keyframes hero-base{
+    0%,13%{fill:#e97f7a;} 17%,30%{fill:#bf993e;} 34%,47%{fill:#60ae77;}
+    51%,63%{fill:#63a9b1;} 67%,80%{fill:#709fe6;} 84%,96%{fill:#e876c1;} 100%{fill:#e97f7a;}
+  }
+  @keyframes hero-shadow{
+    0%,13%{fill:#9f3c56;} 17%,30%{fill:#825429;} 34%,47%{fill:#44682c;}
+    51%,63%{fill:#366663;} 67%,80%{fill:#3b627e;} 84%,96%{fill:#8a3ca2;} 100%{fill:#9f3c56;}
+  }
+  .tone-row{
     margin-top:14px;
-    height:14px;
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:8px;
+    text-align:center;
+  }
+  .tone-row div{
+    font-size:12.5px;
+    color:var(--ink-dim);
+    background:rgba(242,237,228,0.04);
+    border:1px solid var(--line);
     border-radius:7px;
-    background:linear-gradient(90deg,#8d1d4d,#921c23,#753c0d,#5a4a0e,#3c520e,#17562f,#17544b,#185359,#1a5166,#1e4e7a,#2e3ab8,#821d7c);
-    position:relative;
+    padding:7px 4px;
   }
-  .lightness-track-demo .handle{
-    position:absolute;
-    top:-3px;
-    left:63%;
-    width:8px;height:20px;
-    background:#f2ede4;
-    border-radius:3px;
-    border:1px solid rgba(0,0,0,0.4);
-  }
+  .tone-row b{display:block;color:var(--ink);font-size:15px;font-weight:700;}
   .hero-visual-caption{
     margin-top:14px;
     font-size:12.5px;
@@ -392,9 +420,9 @@
     .pricing-block{grid-template-columns:1fr; text-align:left;}
   }
 
-  /* -------- Before/After 데모: "색 하나 고르려고 얼마나 움직여야 하는지"를
-     실제 애니메이션으로 보여준다. 스크린샷이 아니라, 두 상황의 "거리
-     차이" 자체가 정보라서 정적 이미지보다 움직임이 훨씬 잘 설명한다. -------- */
+  /* -------- 비교 데모: 같은 구의 "기본색"만 바꿨을 때 흑백(명도)이 어떻게 되는지.
+     왼쪽(보통 피커)은 색과 함께 L*가 87/36/80으로 흔들려 빛·그림자와 뒤섞이고,
+     오른쪽(SHA Paint)은 L* 65 고정이라 흑백 구가 그대로다. 색 값은 colorMath 계산값. -------- */
   .demo-grid{
     margin-top:44px;
     display:grid;
@@ -414,89 +442,30 @@
     margin-bottom:12px;
   }
   .demo-panel.is-after .demo-label{color:var(--gold);}
-  .demo-stage{
-    position:relative;
-    width:100%;
-    aspect-ratio:16/11;
-    border-radius:9px;
-    background:#141317;
-    overflow:hidden;
-  }
-  .demo-stage::before{
-    content:"";
-    position:absolute;
-    inset:0;
-    background:
-      radial-gradient(ellipse 60% 45% at 38% 55%, rgba(232,163,61,0.08), transparent),
-      radial-gradient(ellipse 40% 30% at 65% 40%, rgba(56,144,221,0.06), transparent);
-  }
-  .far-panel{
-    position:absolute;
-    top:8%; right:6%;
-    width:26%;
-    padding:7px;
-    background:#1c1a1f;
-    border:1px solid var(--line);
-    border-radius:6px;
-  }
-  .far-panel .far-swatch-row{display:flex; gap:4px;}
-  .far-panel .far-swatch{
-    flex:1;
-    aspect-ratio:1;
-    border-radius:2px;
-  }
-  .near-popup{
-    position:absolute;
-    top:44%; left:44%;
-    width:34%;
-    padding:6px;
-    background:#1c1a1f;
-    border:1px solid rgba(232,163,61,0.4);
-    border-radius:8px;
-    box-shadow:0 6px 18px rgba(0,0,0,0.5);
-    opacity:0;
-  }
-  .near-popup .popup-field{
-    width:100%;
-    aspect-ratio:1.3/1;
-    border-radius:5px;
-    background:conic-gradient(from 90deg,
-      #f34b8e,#f45351,#d4711e,#a58920,#709821,#2d9f59,
-      #2d9b8a,#3099a4,#3396bb,#3890dd,#887cf1,#ec36e1,#f34b8e);
-  }
-  .demo-cursor{
-    position:absolute;
-    width:11px; height:11px;
-    background:#f2ede4;
-    border:2px solid #141317;
-    border-radius:50% 50% 50% 2px;
-    transform:rotate(-45deg);
-    box-shadow:0 2px 5px rgba(0,0,0,0.5);
-    z-index:2;
-  }
-  .demo-panel.is-before .demo-cursor{ animation:cursor-far-trip 3.6s ease-in-out infinite; }
-  .demo-panel.is-after .demo-cursor{ animation:cursor-near-trip 3.6s ease-in-out infinite; }
-  .demo-panel.is-after .near-popup{ animation:near-popup-fade 3.6s ease-in-out infinite; }
-  @keyframes cursor-far-trip{
-    0%,8%   { top:66%; left:32%; }
-    38%,54% { top:12%; left:76%; }
-    84%,100%{ top:66%; left:32%; }
-  }
-  @keyframes cursor-near-trip{
-    0%,8%   { top:54%; left:40%; }
-    38%,54% { top:50%; left:47%; }
-    84%,100%{ top:54%; left:40%; }
-  }
-  @keyframes near-popup-fade{
-    0%,10%  { opacity:0; top:44%; left:44%; }
-    18%,74% { opacity:1; top:38%; left:44%; }
-    84%,100%{ opacity:0; top:44%; left:44%; }
-  }
-  .demo-panel .demo-caption{
+  .demo-panel .readout{
     margin-top:12px;
+    font-size:14px;
+    font-weight:700;
+  }
+  .demo-panel.is-before .readout{color:#e8735f;}
+  .demo-panel.is-after .readout{color:#5fbf8a;}
+  .demo-panel .demo-caption{
+    margin-top:6px;
     font-size:13.5px;
     color:var(--ink-dim);
     line-height:1.6;
+  }
+  .demo-panel.is-before .sph.cycle .t-base{animation:naive-base 8s infinite;}
+  .demo-panel.is-before .sph.gray.cycle .t-base{animation:naive-gray 8s infinite;}
+  .demo-panel.is-after .sph.cycle .t-base{animation:same-base 8s infinite;}
+  @keyframes naive-base{
+    0%,18%{fill:#ed7d78;} 25%,43%{fill:#f7da48;} 50%,68%{fill:#324ea8;} 75%,93%{fill:#78dc8c;} 100%{fill:#ed7d78;}
+  }
+  @keyframes naive-gray{
+    0%,18%{fill:#9e9e9e;} 25%,43%{fill:#dadada;} 50%,68%{fill:#545454;} 75%,93%{fill:#c7c7c7;} 100%{fill:#9e9e9e;}
+  }
+  @keyframes same-base{
+    0%,18%{fill:#ed7d78;} 25%,43%{fill:#bf993e;} 50%,68%{fill:#63a9b1;} 75%,93%{fill:#60ae77;} 100%{fill:#ed7d78;}
   }
   @media (max-width:760px){
     .demo-grid{grid-template-columns:1fr;}
@@ -504,11 +473,7 @@
 
   @media (prefers-reduced-motion:reduce){
     html{scroll-behavior:auto;}
-    .demo-panel.is-before .demo-cursor,
-    .demo-panel.is-after .demo-cursor,
-    .near-popup{ animation:none !important; opacity:1; }
-    .demo-panel.is-before .demo-cursor{ top:66%; left:32%; }
-    .demo-panel.is-after .demo-cursor{ top:50%; left:47%; }
+    .sph .t-light,.sph .t-base,.sph .t-shadow{animation:none !important;}
   }
 </style>
 </head>
@@ -529,11 +494,12 @@
 <header class="hero">
   <div class="wrap hero-grid">
     <div>
-      <h1>Keep your hand on the canvas.<br>Keep your values steady.</h1>
+      <h1>Lock the value.<br>Change only the color.</h1>
       <p class="sub">
-        Tired of reaching all the way to the color panel every time you switch colors?
-        SHA Paint pops up right next to your pen tip. It keeps the lightness of your
-        current color locked and lets you choose only the hue and saturation that fit.
+        SHA Paint locks the lightness (L*) of your current color and shows only the hues
+        and chroma that fit at that same value. Recolor as many times as you like: your
+        value steps stay put, so your form never goes flat. And the palette pops up right
+        next to your pen.
       </p>
       <div class="cta-row">
         <a href="https://tjdgus76.gumroad.com/l/vutuls?wanted=true" class="btn-primary gumroad-button">Download for $10</a>
@@ -541,46 +507,48 @@
       </div>
     </div>
     <div class="hero-visual">
-      <div class="field-demo"><div class="cursor-dot"></div></div>
-      <div class="lightness-track-demo"><div class="handle"></div></div>
-      <p class="hero-visual-caption">The field shows only colors that can exist at your current lightness</p>
+      <div class="sphere-pair">
+        <figure><svg class="sph cycle" viewBox="0 0 200 190" aria-hidden="true"><defs><clipPath id="hc1"><circle cx="100" cy="88" r="70"/></clipPath></defs><ellipse class="ground" cx="118" cy="160" rx="66" ry="14"/><g clip-path="url(#hc1)"><rect class="t-shadow" x="30" y="18" width="140" height="140"/><circle class="t-base" cx="86" cy="74" r="68.6"/><ellipse class="t-light" cx="73" cy="60" rx="25" ry="21" transform="rotate(-34 73 60)"/></g><circle class="outline" cx="100" cy="88" r="70"/></svg><figcaption>Color</figcaption></figure>
+        <figure><svg class="sph gray" viewBox="0 0 200 190" aria-hidden="true"><defs><clipPath id="hc2"><circle cx="100" cy="88" r="70"/></clipPath></defs><ellipse class="ground" cx="118" cy="160" rx="66" ry="14"/><g clip-path="url(#hc2)"><rect class="t-shadow" x="30" y="18" width="140" height="140"/><circle class="t-base" cx="86" cy="74" r="68.6"/><ellipse class="t-light" cx="73" cy="60" rx="25" ry="21" transform="rotate(-34 73 60)"/></g><circle class="outline" cx="100" cy="88" r="70"/></svg><figcaption>Grayscale</figcaption></figure>
+      </div>
+      <div class="tone-row">
+        <div><b>L* 85</b>Light</div>
+        <div><b>L* 65</b>Base</div>
+        <div><b>L* 40</b>Shadow</div>
+      </div>
+      <p class="hero-visual-caption">The colors change, the grayscale doesn't — because the value is locked</p>
     </div>
   </div>
 </header>
 
 <section class="divider-top demo-section">
   <div class="wrap">
-    <h2 class="eyebrow-free-title">One color change, two very different trips</h2>
+    <h2 class="eyebrow-free-title">Change the color, then look at it in grayscale</h2>
     <p class="section-lead">
-      This is the moment you switch colors in the middle of a drawing. It's a simplified
-      mock-up rather than a screen capture, but the difference in how far your hand
-      travels is accurate.
+      Only the base color of the same sphere changes here. The grayscale sphere keeps just
+      the lightness (L*) of each color. The values are computed with the same color math as
+      the SHA Paint app.
     </p>
 
     <div class="demo-grid">
       <div class="demo-panel is-before">
-        <p class="demo-label">Before</p>
-        <div class="demo-stage">
-          <div class="far-panel">
-            <div class="far-swatch-row">
-              <div class="far-swatch" style="background:#8d1d4d"></div>
-              <div class="far-swatch" style="background:#3c520e"></div>
-              <div class="far-swatch" style="background:#1a5166"></div>
-              <div class="far-swatch" style="background:#821d7c"></div>
-            </div>
-          </div>
-          <div class="demo-cursor"></div>
+        <p class="demo-label">Normal color picker</p>
+        <div class="sphere-pair">
+          <figure><svg class="sph cycle" viewBox="0 0 200 190" aria-hidden="true"><defs><clipPath id="dc1"><circle cx="100" cy="88" r="70"/></clipPath></defs><ellipse class="ground" cx="118" cy="160" rx="66" ry="14"/><g clip-path="url(#dc1)"><rect class="t-shadow" x="30" y="18" width="140" height="140"/><circle class="t-base" cx="86" cy="74" r="68.6"/><ellipse class="t-light" cx="73" cy="60" rx="25" ry="21" transform="rotate(-34 73 60)"/></g><circle class="outline" cx="100" cy="88" r="70"/></svg><figcaption>Color</figcaption></figure>
+          <figure><svg class="sph gray cycle" viewBox="0 0 200 190" aria-hidden="true"><defs><clipPath id="dc2"><circle cx="100" cy="88" r="70"/></clipPath></defs><ellipse class="ground" cx="118" cy="160" rx="66" ry="14"/><g clip-path="url(#dc2)"><rect class="t-shadow" x="30" y="18" width="140" height="140"/><circle class="t-base" cx="86" cy="74" r="68.6"/><ellipse class="t-light" cx="73" cy="60" rx="25" ry="21" transform="rotate(-34 73 60)"/></g><circle class="outline" cx="100" cy="88" r="70"/></svg><figcaption>Grayscale</figcaption></figure>
         </div>
-        <p class="demo-caption">Every color change is a round trip to a panel off the canvas.</p>
+        <p class="readout">Base L* 65 → 87 → 36 → 80</p>
+        <p class="demo-caption">Rotate the hue and the value moves with it. The base ends up brighter than the light or darker than the shadow, and the form falls apart.</p>
       </div>
 
       <div class="demo-panel is-after">
         <p class="demo-label">SHA Paint</p>
-        <div class="demo-stage">
-          <div class="near-popup"><div class="popup-field"></div></div>
-          <div class="demo-cursor"></div>
+        <div class="sphere-pair">
+          <figure><svg class="sph cycle" viewBox="0 0 200 190" aria-hidden="true"><defs><clipPath id="dc3"><circle cx="100" cy="88" r="70"/></clipPath></defs><ellipse class="ground" cx="118" cy="160" rx="66" ry="14"/><g clip-path="url(#dc3)"><rect class="t-shadow" x="30" y="18" width="140" height="140"/><circle class="t-base" cx="86" cy="74" r="68.6"/><ellipse class="t-light" cx="73" cy="60" rx="25" ry="21" transform="rotate(-34 73 60)"/></g><circle class="outline" cx="100" cy="88" r="70"/></svg><figcaption>Color</figcaption></figure>
+          <figure><svg class="sph gray" viewBox="0 0 200 190" aria-hidden="true"><defs><clipPath id="dc4"><circle cx="100" cy="88" r="70"/></clipPath></defs><ellipse class="ground" cx="118" cy="160" rx="66" ry="14"/><g clip-path="url(#dc4)"><rect class="t-shadow" x="30" y="18" width="140" height="140"/><circle class="t-base" cx="86" cy="74" r="68.6"/><ellipse class="t-light" cx="73" cy="60" rx="25" ry="21" transform="rotate(-34 73 60)"/></g><circle class="outline" cx="100" cy="88" r="70"/></svg><figcaption>Grayscale</figcaption></figure>
         </div>
-        <p class="demo-caption">It opens where your pen is, and you pick your color right there.</p>
+        <p class="readout">Base locked at L* 65</p>
+        <p class="demo-caption">Only the color changes at the same value, so the light, base and shadow steps stay where they were and the form keeps its depth.</p>
       </div>
     </div>
   </div>
@@ -596,7 +564,7 @@
 
     <div class="pain-list">
       <div class="pain-item">
-        <h3>Your values drift a little more with every shadow</h3>
+        <h3>Every color change throws your values off and flattens the form</h3>
         <p class="answer">
           Rotate the hue in a standard color picker and the lightness shifts along with it.
           Matching by eye, your shadow and highlight values slowly drift apart, and the
@@ -605,11 +573,20 @@
         </p>
       </div>
       <div class="pain-item">
+        <h3>Finding a color that fits your current one takes forever</h3>
+        <p class="answer">
+          Want some violet in a shadow or a touch of yellow in the light? In a normal picker
+          you rotate the hue, then fix the lightness, then repeat. <b>SHA Paint's field only
+          shows colors at the same value as your current color</b>, so just drag around it
+          and you get colors that fit, ready to use.
+        </p>
+      </div>
+      <div class="pain-item">
         <h3>You leave the drawing just to pick a color</h3>
         <p class="answer">
-          When you're zoomed in on details, that quick trip up to the color panel breaks
-          your focus more than you'd expect. <b>The popup opens right by your cursor</b>,
-          so you can change colors without leaving your current view or zoom level.
+          That quick trip up to the color panel breaks your focus more than you'd expect.
+          <b>The palette opens right by your cursor</b>, so you can change colors without
+          leaving your current view or zoom level.
         </p>
       </div>
       <div class="pain-item">
@@ -674,7 +651,7 @@
       </div>
       <div class="feature-row">
         <div class="feature-dot" style="background:#ec36e1"></div>
-        <div><h4>Your choice of trigger</h4><p>Middle-click is the default, but you can switch to any key or mouse button.</p></div>
+        <div><h4>Pops up by your pen</h4><p>Middle-click (default) or any key or button you choose opens the palette right next to your cursor.</p></div>
       </div>
     </div>
   </div>
@@ -749,7 +726,7 @@
 
 <footer>
   <div class="wrap">
-    <p>SHA Paint — A Photoshop palette for Windows</p>
+    <p>SHA Paint — A value-locked Photoshop palette for Windows</p>
     <p>Contact: tjdgus0190@naver.com</p>
   </div>
 </footer>

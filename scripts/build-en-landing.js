@@ -16,13 +16,13 @@ function rep(o, n) {
   head = head.replace(o, n);
 }
 rep('<html lang="ko">', '<html lang="en">');
-head = head.replace(/<title>[^<]*<\/title>/, "<title>SHA Paint — The same-value palette, right by your pen</title>");
+head = head.replace(/<title>[^<]*<\/title>/, "<title>SHA Paint — Lock the value, change only the color</title>");
 head = head.replace(/<meta name="description" content="[^"]*" \/>/,
-  '<meta name="description" content="A Photoshop color palette that pops up right next to your pen. It keeps the lightness of your current color locked, so you only choose hue and saturation. For Windows 10/11." />');
+  '<meta name="description" content="A same-value color palette for Photoshop. It locks the lightness (L*) of your current color and shows only hues and chroma at that value, so recoloring never breaks your shading or form. For Windows 10/11." />');
 head = head.replace(/<meta property="og:title" content="[^"]*" \/>/,
-  '<meta property="og:title" content="SHA Paint — The same-value palette, right by your pen" />');
+  '<meta property="og:title" content="SHA Paint — Lock the value, change only the color" />');
 head = head.replace(/<meta property="og:description" content="[^"]*" \/>/,
-  '<meta property="og:description" content="Stop going back and forth to the color panel. Pick colors that keep the same value, right next to your pen." />');
+  '<meta property="og:description" content="Colors that fit, at the exact same value as your current color. Recolor freely and your shading and form stay intact." />');
 
 const body = `<body>
 
@@ -41,11 +41,12 @@ const body = `<body>
 <header class="hero">
   <div class="wrap hero-grid">
     <div>
-      <h1>Keep your hand on the canvas.<br>Keep your values steady.</h1>
+      <h1>Lock the value.<br>Change only the color.</h1>
       <p class="sub">
-        Tired of reaching all the way to the color panel every time you switch colors?
-        SHA Paint pops up right next to your pen tip. It keeps the lightness of your
-        current color locked and lets you choose only the hue and saturation that fit.
+        SHA Paint locks the lightness (L*) of your current color and shows only the hues
+        and chroma that fit at that same value. Recolor as many times as you like: your
+        value steps stay put, so your form never goes flat. And the palette pops up right
+        next to your pen.
       </p>
       <div class="cta-row">
         <a href="${BUY}" class="btn-primary gumroad-button">Download for $10</a>
@@ -53,46 +54,48 @@ const body = `<body>
       </div>
     </div>
     <div class="hero-visual">
-      <div class="field-demo"><div class="cursor-dot"></div></div>
-      <div class="lightness-track-demo"><div class="handle"></div></div>
-      <p class="hero-visual-caption">The field shows only colors that can exist at your current lightness</p>
+      <div class="sphere-pair">
+        <figure><svg class="sph cycle" viewBox="0 0 200 190" aria-hidden="true"><defs><clipPath id="hc1"><circle cx="100" cy="88" r="70"/></clipPath></defs><ellipse class="ground" cx="118" cy="160" rx="66" ry="14"/><g clip-path="url(#hc1)"><rect class="t-shadow" x="30" y="18" width="140" height="140"/><circle class="t-base" cx="86" cy="74" r="68.6"/><ellipse class="t-light" cx="73" cy="60" rx="25" ry="21" transform="rotate(-34 73 60)"/></g><circle class="outline" cx="100" cy="88" r="70"/></svg><figcaption>Color</figcaption></figure>
+        <figure><svg class="sph gray" viewBox="0 0 200 190" aria-hidden="true"><defs><clipPath id="hc2"><circle cx="100" cy="88" r="70"/></clipPath></defs><ellipse class="ground" cx="118" cy="160" rx="66" ry="14"/><g clip-path="url(#hc2)"><rect class="t-shadow" x="30" y="18" width="140" height="140"/><circle class="t-base" cx="86" cy="74" r="68.6"/><ellipse class="t-light" cx="73" cy="60" rx="25" ry="21" transform="rotate(-34 73 60)"/></g><circle class="outline" cx="100" cy="88" r="70"/></svg><figcaption>Grayscale</figcaption></figure>
+      </div>
+      <div class="tone-row">
+        <div><b>L* 85</b>Light</div>
+        <div><b>L* 65</b>Base</div>
+        <div><b>L* 40</b>Shadow</div>
+      </div>
+      <p class="hero-visual-caption">The colors change, the grayscale doesn't — because the value is locked</p>
     </div>
   </div>
 </header>
 
 <section class="divider-top demo-section">
   <div class="wrap">
-    <h2 class="eyebrow-free-title">One color change, two very different trips</h2>
+    <h2 class="eyebrow-free-title">Change the color, then look at it in grayscale</h2>
     <p class="section-lead">
-      This is the moment you switch colors in the middle of a drawing. It's a simplified
-      mock-up rather than a screen capture, but the difference in how far your hand
-      travels is accurate.
+      Only the base color of the same sphere changes here. The grayscale sphere keeps just
+      the lightness (L*) of each color. The values are computed with the same color math as
+      the SHA Paint app.
     </p>
 
     <div class="demo-grid">
       <div class="demo-panel is-before">
-        <p class="demo-label">Before</p>
-        <div class="demo-stage">
-          <div class="far-panel">
-            <div class="far-swatch-row">
-              <div class="far-swatch" style="background:#8d1d4d"></div>
-              <div class="far-swatch" style="background:#3c520e"></div>
-              <div class="far-swatch" style="background:#1a5166"></div>
-              <div class="far-swatch" style="background:#821d7c"></div>
-            </div>
-          </div>
-          <div class="demo-cursor"></div>
+        <p class="demo-label">Normal color picker</p>
+        <div class="sphere-pair">
+          <figure><svg class="sph cycle" viewBox="0 0 200 190" aria-hidden="true"><defs><clipPath id="dc1"><circle cx="100" cy="88" r="70"/></clipPath></defs><ellipse class="ground" cx="118" cy="160" rx="66" ry="14"/><g clip-path="url(#dc1)"><rect class="t-shadow" x="30" y="18" width="140" height="140"/><circle class="t-base" cx="86" cy="74" r="68.6"/><ellipse class="t-light" cx="73" cy="60" rx="25" ry="21" transform="rotate(-34 73 60)"/></g><circle class="outline" cx="100" cy="88" r="70"/></svg><figcaption>Color</figcaption></figure>
+          <figure><svg class="sph gray cycle" viewBox="0 0 200 190" aria-hidden="true"><defs><clipPath id="dc2"><circle cx="100" cy="88" r="70"/></clipPath></defs><ellipse class="ground" cx="118" cy="160" rx="66" ry="14"/><g clip-path="url(#dc2)"><rect class="t-shadow" x="30" y="18" width="140" height="140"/><circle class="t-base" cx="86" cy="74" r="68.6"/><ellipse class="t-light" cx="73" cy="60" rx="25" ry="21" transform="rotate(-34 73 60)"/></g><circle class="outline" cx="100" cy="88" r="70"/></svg><figcaption>Grayscale</figcaption></figure>
         </div>
-        <p class="demo-caption">Every color change is a round trip to a panel off the canvas.</p>
+        <p class="readout">Base L* 65 → 87 → 36 → 80</p>
+        <p class="demo-caption">Rotate the hue and the value moves with it. The base ends up brighter than the light or darker than the shadow, and the form falls apart.</p>
       </div>
 
       <div class="demo-panel is-after">
         <p class="demo-label">SHA Paint</p>
-        <div class="demo-stage">
-          <div class="near-popup"><div class="popup-field"></div></div>
-          <div class="demo-cursor"></div>
+        <div class="sphere-pair">
+          <figure><svg class="sph cycle" viewBox="0 0 200 190" aria-hidden="true"><defs><clipPath id="dc3"><circle cx="100" cy="88" r="70"/></clipPath></defs><ellipse class="ground" cx="118" cy="160" rx="66" ry="14"/><g clip-path="url(#dc3)"><rect class="t-shadow" x="30" y="18" width="140" height="140"/><circle class="t-base" cx="86" cy="74" r="68.6"/><ellipse class="t-light" cx="73" cy="60" rx="25" ry="21" transform="rotate(-34 73 60)"/></g><circle class="outline" cx="100" cy="88" r="70"/></svg><figcaption>Color</figcaption></figure>
+          <figure><svg class="sph gray" viewBox="0 0 200 190" aria-hidden="true"><defs><clipPath id="dc4"><circle cx="100" cy="88" r="70"/></clipPath></defs><ellipse class="ground" cx="118" cy="160" rx="66" ry="14"/><g clip-path="url(#dc4)"><rect class="t-shadow" x="30" y="18" width="140" height="140"/><circle class="t-base" cx="86" cy="74" r="68.6"/><ellipse class="t-light" cx="73" cy="60" rx="25" ry="21" transform="rotate(-34 73 60)"/></g><circle class="outline" cx="100" cy="88" r="70"/></svg><figcaption>Grayscale</figcaption></figure>
         </div>
-        <p class="demo-caption">It opens where your pen is, and you pick your color right there.</p>
+        <p class="readout">Base locked at L* 65</p>
+        <p class="demo-caption">Only the color changes at the same value, so the light, base and shadow steps stay where they were and the form keeps its depth.</p>
       </div>
     </div>
   </div>
@@ -108,7 +111,7 @@ const body = `<body>
 
     <div class="pain-list">
       <div class="pain-item">
-        <h3>Your values drift a little more with every shadow</h3>
+        <h3>Every color change throws your values off and flattens the form</h3>
         <p class="answer">
           Rotate the hue in a standard color picker and the lightness shifts along with it.
           Matching by eye, your shadow and highlight values slowly drift apart, and the
@@ -117,11 +120,20 @@ const body = `<body>
         </p>
       </div>
       <div class="pain-item">
+        <h3>Finding a color that fits your current one takes forever</h3>
+        <p class="answer">
+          Want some violet in a shadow or a touch of yellow in the light? In a normal picker
+          you rotate the hue, then fix the lightness, then repeat. <b>SHA Paint's field only
+          shows colors at the same value as your current color</b>, so just drag around it
+          and you get colors that fit, ready to use.
+        </p>
+      </div>
+      <div class="pain-item">
         <h3>You leave the drawing just to pick a color</h3>
         <p class="answer">
-          When you're zoomed in on details, that quick trip up to the color panel breaks
-          your focus more than you'd expect. <b>The popup opens right by your cursor</b>,
-          so you can change colors without leaving your current view or zoom level.
+          That quick trip up to the color panel breaks your focus more than you'd expect.
+          <b>The palette opens right by your cursor</b>, so you can change colors without
+          leaving your current view or zoom level.
         </p>
       </div>
       <div class="pain-item">
@@ -186,7 +198,7 @@ const body = `<body>
       </div>
       <div class="feature-row">
         <div class="feature-dot" style="background:#ec36e1"></div>
-        <div><h4>Your choice of trigger</h4><p>Middle-click is the default, but you can switch to any key or mouse button.</p></div>
+        <div><h4>Pops up by your pen</h4><p>Middle-click (default) or any key or button you choose opens the palette right next to your cursor.</p></div>
       </div>
     </div>
   </div>
@@ -261,7 +273,7 @@ const body = `<body>
 
 <footer>
   <div class="wrap">
-    <p>SHA Paint — A Photoshop palette for Windows</p>
+    <p>SHA Paint — A value-locked Photoshop palette for Windows</p>
     ${CONTACT ? `<p>Contact: ${CONTACT}</p>` : ""}
   </div>
 </footer>
